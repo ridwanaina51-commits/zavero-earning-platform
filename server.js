@@ -55,10 +55,11 @@ app.post("/initialize-payment", async (req, res) => {
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    email: email,
-                    amount: Math.round(Number(amount) * 100),
-                    currency: "NGN"
-                })
+    email: email,
+    amount: Math.round(Number(amount) * 100),
+    currency: "NGN",
+    callback_url: "https://zavero-earning-platform.onrender.com/payment-success"
+})
             }
         );
 
