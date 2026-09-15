@@ -137,14 +137,109 @@ app.post("/initialize-payment", async (req, res) => {
 });
 
 /* Verify Paystack payment */
+/* Store verified balances */
+const userBalances = {};
+const verifiedPayments = new Set();
+
+/* Verify Paystack payment */
 app.post("/verify-payment", async (req, res) => {
-    const { reference, amount } = req.body;
+    const { reference } = req.body;
 
     if (!reference) {
         return res.status(400).json({
             success: false,
             message: "Payment reference is required."
         });
+    }
+
+    const secretKey = process.env.PAYSTACK_SECRET_KEY;
+
+    if (!secretKey) {
+        return res.status(500).json({
+            success: false,
+            message: "Paystack secret key is not configured."
+        });
+    }
+
+    try {
+        const response = await fetch(
+            "https://api.paystack.co/transaction/verify/" +
+            encodeURIComponent(reference),
+            {
+                method: "GET",
+                headers: {
+                    "Authorization": "Bearer " + secretKey
+                }
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.status) {
+            return res.status(400).json({
+                success: false,
+                message: data.message || "Payment verification failed."
+            });
+        }
+
+        const transaction = data.data;
+
+        if (transaction.status !== "success") {
+            return res.json({
+                success: false,
+                message: "Payment is not successful yet."
+            });
+        }
+
+        if (transaction.currency !== "NGN") {
+            return res.json({
+                success: false,
+                message: "Wrong payment currency."
+            });
+        }
+
+        const email = transaction.customer.email;
+        const amount = transaction.amount / 100;
+
+        /* Stop the same payment being credited twice */
+        if (verifiedPayments.has(reference)) {
+            return res.json({
+                success: true,
+                message: "Payment was already credited.",
+                reference: reference,
+                amount: amount,
+                currency: "NGN",
+                balance: userBalances[email] || 0
+            });
+        }
+
+        /* Credit the verified payment */
+        userBalances[email] =
+            (userBalances[email] || 0) + amount;
+
+        verifiedPayments.add(reference);
+
+        res.json({
+            success: true,
+            message: "Payment verified and balance credited.",
+            reference: reference,
+            amount: amount,
+            currency: "NGN",
+            balance: userBalances[email]
+        });
+
+    } catch (error) {
+        console.error(
+            "Verify payment error:",
+            error
+        );
+
+        res.status(500).json({
+            success: false,
+            message: "Could not verify payment."
+        });
+    }
+});
     }
 
     const secretKey = process.env.PAYSTACK_SECRET_KEY;
