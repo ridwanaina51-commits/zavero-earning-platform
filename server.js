@@ -4,6 +4,19 @@ const app = express();
 
 app.use(express.json());
 
+// Allow the website to communicate with the backend
+app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type");
+
+    if (req.method === "OPTIONS") {
+        return res.sendStatus(204);
+    }
+
+    next();
+});
+
 app.get("/", (req, res) => {
     res.send("Zavero backend is working!");
 });
@@ -55,11 +68,12 @@ app.post("/deposit", async (req, res) => {
 
     } catch (error) {
 
+        console.error("Paystack error:", error);
+
         res.status(500).json({
             success: false,
             message: "Could not connect to Paystack."
         });
-
     }
 });
 
