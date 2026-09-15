@@ -28,7 +28,22 @@ app.get("/test", (req, res) => {
         message: "Zavero connection test is working!"
     });
 });
+/* Get user balance */
+app.get("/balance", (req, res) => {
+    const email = req.query.email;
 
+    if (!email) {
+        return res.status(400).json({
+            success: false,
+            message: "Email is required."
+        });
+    }
+
+    res.json({
+        success: true,
+        balance: userBalances[email] || 0
+    });
+});
 /* Payment success page */
 app.get("/payment-success", (req, res) => {
     res.send(`
