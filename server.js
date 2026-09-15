@@ -20,7 +20,12 @@ app.use((req, res, next) => {
 app.get("/", (req, res) => {
     res.send("Zavero backend is working!");
 });
-
+app.get("/test", (req, res) => {
+    res.json({
+        success: true,
+        message: "Zavero connection test is working!"
+    });
+});
 app.post("/deposit", async (req, res) => {
 
     const { name, amount, email } = req.body;
