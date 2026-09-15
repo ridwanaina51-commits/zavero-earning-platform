@@ -13,8 +13,54 @@ app.use((req, res, next) => {
 });
 
 /* Home */
-app.get("/", (req, res) => {
-    res.send("Zavero backend is working!");
+app.get("/payment-success", (req, res) => {
+    res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Zavero Payment</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: Arial; text-align: center; padding: 40px;">
+            <h2>Checking payment...</h2>
+            <p id="message">Please wait.</p>
+
+            <script>
+                const params = new URLSearchParams(window.location.search);
+                const reference = params.get("reference");
+
+                if (!reference) {
+                    document.getElementById("message").innerText =
+                        "Payment reference was not found.";
+                } else {
+                    fetch("/verify-payment", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            reference: reference
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            document.getElementById("message").innerText =
+                                "Payment verified successfully. You can return to Zavero.";
+                        } else {
+                            document.getElementById("message").innerText =
+                                data.message || "Payment could not be verified.";
+                        }
+                    })
+                    .catch(error => {
+                        document.getElementById("message").innerText =
+                            "Could not verify payment.";
+                    });
+                }
+            </script>
+        </body>
+        </html>
+    `);
 });
 app.get("/payment-success", (req, res) => {
     res.send("Payment completed. You can return to Zavero.");
