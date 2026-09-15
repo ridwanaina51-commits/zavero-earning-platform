@@ -4,7 +4,7 @@ const app = express();
 
 app.use(express.json());
 
-/* Allow the website to connect */
+/* Allow website to connect */
 app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
@@ -25,31 +25,70 @@ app.get("/test", (req, res) => {
     });
 });
 
-/* Deposit request */
-app.post("/deposit", (req, res) => {
-
+/* Paystack: Start payment */
+app.post("/initialize-payment", async (req, res) => {
     const { name, email, amount } = req.body;
 
-    if (!name || !amount) {
+    if (!name || !email || !amount) {
         return res.status(400).json({
             success: false,
-            message: "Name and amount are required."
+            message: "Name, email and amount are required."
         });
     }
 
-    res.json({
-        success: true,
-        message: "Deposit request received.",
-        name: name,
-        email: email || "",
-        amount: amount
-    });
+    const secretKey = process.env.PAYSTACK_SECRET_KEY;
 
+    if (!secretKey) {
+        return res.status(500).json({
+            success: false,
+            message: "Paystack secret key is not configured."
+        });
+    }
+
+    try {
+        const response = await fetch(
+            "https://api.paystack.co/transaction/initialize",
+            {
+                method: "POST",
+                headers: {
+                    "Authorization": "Bearer " + secretKey,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    email: email,
+                    amount: Math.round(Number(amount) * 100),
+                    currency: "NGN"
+                })
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.status) {
+            return res.status(400).json({
+                success: false,
+                message: data.message || "Could not start payment."
+            });
+        }
+
+        res.json({
+            success: true,
+            authorization_url: data.data.authorization_url,
+            reference: data.data.reference
+        });
+
+    } catch (error) {
+        console.error("Payment initialization error:", error);
+
+        res.status(500).json({
+            success: false,
+            message: "Could not connect to Paystack."
+        });
+    }
 });
 
 /* Verify Paystack payment */
 app.post("/verify-payment", async (req, res) => {
-
     const { reference, amount } = req.body;
 
     if (!reference) {
@@ -69,7 +108,6 @@ app.post("/verify-payment", async (req, res) => {
     }
 
     try {
-
         const response = await fetch(
             "https://api.paystack.co/transaction/verify/" +
             encodeURIComponent(reference),
@@ -116,7 +154,7 @@ app.post("/verify-payment", async (req, res) => {
             });
         }
 
-        return res.json({
+        res.json({
             success: true,
             message: "Payment verified successfully.",
             reference: transaction.reference,
@@ -125,15 +163,13 @@ app.post("/verify-payment", async (req, res) => {
         });
 
     } catch (error) {
-
         console.error("Verify payment error:", error);
 
-        return res.status(500).json({
+        res.status(500).json({
             success: false,
             message: "Could not verify payment."
         });
     }
-
 });
 
 /* Start server */
