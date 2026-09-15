@@ -16,7 +16,9 @@ app.use((req, res, next) => {
 app.get("/", (req, res) => {
     res.send("Zavero backend is working!");
 });
-
+app.get("/payment-success", (req, res) => {
+    res.send("Payment completed. You can return to Zavero.");
+});
 /* Connection test */
 app.get("/test", (req, res) => {
     res.json({
