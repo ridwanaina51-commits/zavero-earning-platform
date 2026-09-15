@@ -4,84 +4,50 @@ const app = express();
 
 app.use(express.json());
 
-// Allow the website to communicate with the backend
+/* Allow the website to connect to this server */
 app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
     res.header("Access-Control-Allow-Headers", "Content-Type");
-
-    if (req.method === "OPTIONS") {
-        return res.sendStatus(204);
-    }
-
     next();
 });
 
+/* Home */
 app.get("/", (req, res) => {
     res.send("Zavero backend is working!");
 });
+
+/* Connection test */
 app.get("/test", (req, res) => {
     res.json({
         success: true,
         message: "Zavero connection test is working!"
     });
 });
-app.post("/deposit", async (req, res) => {
 
-    const { name, amount, email } = req.body;
+/* Deposit request */
+app.post("/deposit", (req, res) => {
 
-    if (!name || !amount || !email) {
+    const { name, email, amount } = req.body;
+
+    if (!name || !amount) {
         return res.status(400).json({
             success: false,
-            message: "Name, email and amount are required."
+            message: "Name and amount are required."
         });
     }
 
-    try {
+    res.json({
+        success: true,
+        message: "Deposit request received.",
+        name: name,
+        email: email || "",
+        amount: amount
+    });
 
-        const response = await fetch(
-            "https://api.paystack.co/transaction/initialize",
-            {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    email: email,
-                    amount: Number(amount) * 100,
-                    currency: "NGN"
-                })
-            }
-        );
-
-        const data = await response.json();
-
-        if (!data.status) {
-            return res.status(400).json({
-                success: false,
-                message: data.message || "Paystack initialization failed."
-            });
-        }
-
-        res.json({
-            success: true,
-            message: "Paystack payment initialized.",
-            authorization_url: data.data.authorization_url,
-            reference: data.data.reference
-        });
-
-    } catch (error) {
-
-        console.error("Paystack error:", error);
-
-        res.status(500).json({
-            success: false,
-            message: "Could not connect to Paystack."
-        });
-    }
 });
 
+/* Start server */
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
