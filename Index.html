@@ -1,4 +1,4 @@
-DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -65,8 +65,6 @@ select {
     text-align: center;
 }
 
-/* HOME */
-
 #homePage {
     text-align: center;
     padding: 45px 20px;
@@ -77,8 +75,6 @@ select {
     font-size: 32px;
     margin-bottom: 20px;
 }
-
-/* DASHBOARD */
 
 .app {
     max-width: 480px;
@@ -186,8 +182,6 @@ select {
     margin: 12px;
 }
 
-/* BOTTOM NAV */
-
 .bottom-nav {
     position: fixed;
     bottom: 12px;
@@ -223,8 +217,6 @@ select {
 
 <body>
 
-<!-- HOME -->
-
 <div id="homePage">
 
     <h1>ZAVERO</h1>
@@ -244,9 +236,6 @@ select {
     </button>
 
 </div>
-
-
-<!-- LOGIN -->
 
 <div id="loginPage" class="box">
 
@@ -275,9 +264,6 @@ select {
     <p id="loginMessage" class="message"></p>
 
 </div>
-
-
-<!-- SIGN UP -->
 
 <div id="signupPage" class="box">
 
@@ -319,9 +305,6 @@ select {
 
 </div>
 
-
-<!-- DASHBOARD -->
-
 <div id="dashboard" class="app">
 
     <div class="logo">
@@ -331,9 +314,6 @@ select {
     <div class="welcome">
         Welcome, <span id="userName"></span> 👋
     </div>
-
-
-    <!-- BALANCE -->
 
     <div class="balance-card">
 
@@ -352,13 +332,9 @@ select {
 
     </div>
 
-
-    <!-- TASKS -->
-
     <div class="section-title">
         Social Tasks · Earn Rewards
     </div>
-
 
     <div class="task">
 
@@ -388,7 +364,6 @@ select {
 
     </div>
 
-
     <div class="task">
 
         <h3>📱 Complete a simple task</h3>
@@ -417,16 +392,12 @@ select {
 
     </div>
 
-
     <button
         class="login"
         id="tasksButton"
         type="button">
         📋 View All Tasks
     </button>
-
-
-    <!-- WITHDRAW -->
 
     <div class="section-title">
         💸 Withdraw Money
@@ -480,9 +451,6 @@ select {
 
     </div>
 
-
-    <!-- ADD MONEY -->
-
     <div class="section-title">
         💰 Add Money
     </div>
@@ -506,9 +474,6 @@ select {
 
     </div>
 
-
-    <!-- LOGOUT -->
-
     <button
         id="logoutButton"
         class="logout"
@@ -517,9 +482,6 @@ select {
     </button>
 
 </div>
-
-
-<!-- BOTTOM NAV -->
 
 <div class="bottom-nav">
 
@@ -550,14 +512,11 @@ select {
 
 </div>
 
-
 <script>
 
 const BACKEND_URL =
-    "https://zavero-earning-platform.onrender.com";
+    "https://zavero-earning-platform-1.onrender.com";
 
-
-/* ================= HOME → LOGIN ================= */
 
 document
 .getElementById("loginButton")
@@ -571,8 +530,6 @@ document
 });
 
 
-/* ================= HOME → SIGN UP ================= */
-
 document
 .getElementById("signupButton")
 .addEventListener("click", function () {
@@ -584,8 +541,6 @@ document
 
 });
 
-
-/* ================= BACK ================= */
 
 document
 .getElementById("loginBack")
@@ -606,8 +561,6 @@ document
 
 });
 
-
-/* ================= SIGN UP ================= */
 
 document
 .getElementById("signupSubmit")
@@ -678,8 +631,6 @@ document
 });
 
 
-/* ================= LOGIN ================= */
-
 document
 .getElementById("loginSubmit")
 .addEventListener("click", function () {
@@ -730,8 +681,6 @@ document
 });
 
 
-/* ================= DASHBOARD ================= */
-
 function showDashboard(name) {
 
     document.getElementById("homePage").style.display = "none";
@@ -741,26 +690,37 @@ function showDashboard(name) {
 
     document.getElementById("userName").innerText = name;
 
-    document.getElementById("balance").innerText =
-        fetch("https://zavero-earning-platform.onrender.com/balance?email=" + encodeURIComponent(localStorage.getItem("zaveroEmail")))
+
+    fetch(
+        BACKEND_URL +
+        "/balance?email=" +
+        encodeURIComponent(
+            localStorage.getItem("zaveroEmail")
+        )
+    )
     .then(response => response.json())
     .then(data => {
+
         if (data.success) {
+
             document.getElementById("balance").innerText =
-                "₦" + Number(data.balance).toLocaleString();
+                Number(data.balance).toLocaleString();
+
         }
+
     })
     .catch(error => {
+
         console.error("Balance error:", error);
+
     });
+
 
     document.getElementById("earnings").innerText =
         localStorage.getItem("zaveroEarnings") || "0";
 
 }
 
-
-/* ================= TASKS ================= */
 
 document
 .getElementById("tasksButton")
@@ -807,8 +767,6 @@ document
 });
 
 
-/* ================= WITHDRAW ================= */
-
 document
 .getElementById("withdrawButton")
 .addEventListener("click", function () {
@@ -853,8 +811,6 @@ document
 
 });
 
-
-/* ================= ADD MONEY / PAYSTACK ================= */
 
 document
 .getElementById("depositButton")
@@ -968,8 +924,6 @@ document
 });
 
 
-/* ================= LOGOUT ================= */
-
 document
 .getElementById("logoutButton")
 .addEventListener("click", function () {
@@ -983,4 +937,4 @@ document
 </script>
 
 </body>
-</html>
+        </html>
