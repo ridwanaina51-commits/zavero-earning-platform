@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Zavero - Earn</title>
+<title>Zavero - Earn Dashboard</title>
 
 <style>
 
@@ -23,116 +23,159 @@ body {
 }
 
 .container {
+    width: 100%;
     max-width: 480px;
     margin: auto;
-    padding: 25px 20px 40px;
+    padding: 20px;
+    padding-bottom: 40px;
+}
+
+/* HEADER */
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 25px;
 }
 
 .logo {
-    text-align: center;
     color: #7667ff;
-    font-size: 30px;
+    font-size: 28px;
     font-weight: bold;
-    margin-bottom: 25px;
 }
 
 .back {
     background: #151633;
+    border: 1px solid #292b50;
     color: white;
-    border: none;
-    padding: 10px 16px;
+    padding: 10px 15px;
     border-radius: 10px;
     cursor: pointer;
-    margin-bottom: 20px;
-    font-size: 15px;
 }
 
+/* TITLE */
+
 .title {
-    text-align: center;
     font-size: 28px;
-    margin: 15px 0 8px;
+    margin-bottom: 5px;
 }
 
 .subtitle {
-    text-align: center;
-    color: #aaa;
+    color: #999;
     margin-bottom: 25px;
 }
 
+/* BALANCE */
+
 .balance-card {
-    background: #111332;
-    border: 1px solid #292b50;
-    border-radius: 18px;
-    padding: 20px;
-    text-align: center;
+    background: linear-gradient(135deg, #5142e8, #7667ff);
+    padding: 25px;
+    border-radius: 22px;
     margin-bottom: 20px;
 }
 
 .balance-label {
-    color: #aaa;
+    color: #ddd;
     font-size: 14px;
 }
 
 .balance {
-    font-size: 30px;
+    font-size: 36px;
     font-weight: bold;
     margin-top: 8px;
 }
 
-.earn-card {
-    background: linear-gradient(135deg, #5142e8, #7667ff);
-    border-radius: 25px;
-    padding: 30px 20px;
-    text-align: center;
-    margin-bottom: 20px;
+/* EARN ITEMS */
+
+.earn-item {
+    background: #111332;
+    border: 1px solid #292b50;
+    border-radius: 18px;
+    padding: 20px;
+    margin-bottom: 15px;
 }
 
-.earn-icon {
-    font-size: 45px;
-    margin-bottom: 10px;
+.item-top {
+    display: flex;
+    align-items: center;
+    gap: 15px;
 }
 
-.earn-title {
-    font-size: 22px;
+.icon {
+    width: 52px;
+    height: 52px;
+    background: #1b1d45;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+}
+
+.item-info {
+    flex: 1;
+}
+
+.item-title {
+    font-size: 18px;
     font-weight: bold;
+}
+
+.item-description {
+    color: #999;
+    font-size: 13px;
+    margin-top: 5px;
 }
 
 .reward {
-    font-size: 36px;
+    color: #20d968;
     font-weight: bold;
-    margin: 15px 0;
+    font-size: 17px;
 }
 
-.timer {
-    background: rgba(0,0,0,.2);
-    padding: 12px;
-    border-radius: 12px;
-    margin: 15px 0;
-}
+/* BUTTON */
 
-.claim-button {
+.earn-button {
     width: 100%;
     border: none;
     border-radius: 12px;
     padding: 14px;
-    margin: 10px 0 0;
+    margin-top: 15px;
     background: #20d968;
     color: white;
-    font-size: 17px;
+    font-size: 16px;
+    font-weight: bold;
     cursor: pointer;
 }
 
-.claim-button:disabled {
+.earn-button:disabled {
     background: #555;
-    color: #bbb;
-    cursor: not-allowed;
+    color: #aaa;
 }
+
+/* TIMER */
+
+.timer {
+    text-align: center;
+    background: #181a3d;
+    padding: 10px;
+    border-radius: 10px;
+    margin-top: 12px;
+    color: #bbb;
+    font-size: 14px;
+}
+
+/* MESSAGE */
 
 .message {
     text-align: center;
+    min-height: 22px;
     margin-top: 15px;
-    min-height: 20px;
+    font-size: 14px;
 }
+
+/* INFO */
 
 .info {
     background: #111332;
@@ -143,45 +186,57 @@ body {
 }
 
 .info h3 {
-    margin-bottom: 12px;
+    margin-bottom: 10px;
 }
 
 .info p {
-    color: #aaa;
+    color: #999;
     line-height: 1.6;
+    font-size: 14px;
 }
 
 </style>
 </head>
 
+
 <body>
 
 <div class="container">
 
-    <div class="logo">
-        ZAVERO
+    <!-- HEADER -->
+
+    <div class="header">
+
+        <div class="logo">
+            ZAVERO
+        </div>
+
+        <button
+            class="back"
+            id="backButton">
+            ← Back
+        </button>
+
     </div>
 
-    <button
-        class="back"
-        id="backButton"
-        type="button">
-        ← Back
-    </button>
+
+    <!-- TITLE -->
 
     <h1 class="title">
         ⚡ Earn
     </h1>
 
     <p class="subtitle">
-        Claim your daily reward every 24 hours.
+        Complete tasks and earn rewards.
     </p>
 
+
+    <!-- BALANCE -->
 
     <div class="balance-card">
 
         <div class="balance-label">
-            YOUR BALANCE
+            AVAILABLE BALANCE
         </div>
 
         <div class="balance">
@@ -191,52 +246,153 @@ body {
     </div>
 
 
-    <div class="earn-card">
+    <!-- DAILY REWARD -->
 
-        <div class="earn-icon">
-            🎁
+    <div class="earn-item">
+
+        <div class="item-top">
+
+            <div class="icon">
+                🎁
+            </div>
+
+            <div class="item-info">
+
+                <div class="item-title">
+                    Daily Reward
+                </div>
+
+                <div class="item-description">
+                    Claim once every 24 hours
+                </div>
+
+            </div>
+
+            <div class="reward">
+                +₦100
+            </div>
+
         </div>
 
-        <div class="earn-title">
-            Daily Reward
-        </div>
 
-        <div class="reward">
-            +₦100
-        </div>
-
-        <div id="timer" class="timer">
+        <div
+            id="dailyTimer"
+            class="timer">
             Available now
         </div>
 
-        <button
-            id="claimButton"
-            class="claim-button"
-            type="button">
-            Claim Today's ₦100
-        </button>
 
-        <p id="message" class="message"></p>
+        <button
+            id="dailyButton"
+            class="earn-button">
+            Claim ₦100
+        </button>
 
     </div>
 
 
+    <!-- WATCH TASK -->
+
+    <div class="earn-item">
+
+        <div class="item-top">
+
+            <div class="icon">
+                ▶️
+            </div>
+
+            <div class="item-info">
+
+                <div class="item-title">
+                    Watch & Earn
+                </div>
+
+                <div class="item-description">
+                    Watch a video to earn
+                </div>
+
+            </div>
+
+            <div class="reward">
+                +₦50
+            </div>
+
+        </div>
+
+
+        <button
+            id="watchButton"
+            class="earn-button">
+            Watch Video
+        </button>
+
+    </div>
+
+
+    <!-- SOCIAL TASK -->
+
+    <div class="earn-item">
+
+        <div class="item-top">
+
+            <div class="icon">
+                📱
+            </div>
+
+            <div class="item-info">
+
+                <div class="item-title">
+                    Social Task
+                </div>
+
+                <div class="item-description">
+                    Complete a social task
+                </div>
+
+            </div>
+
+            <div class="reward">
+                +₦50
+            </div>
+
+        </div>
+
+
+        <button
+            id="socialButton"
+            class="earn-button">
+            Start Task
+        </button>
+
+    </div>
+
+
+    <!-- MESSAGE -->
+
+    <div
+        id="message"
+        class="message">
+    </div>
+
+
+    <!-- INFORMATION -->
+
     <div class="info">
 
         <h3>
-            How Daily Earnings Work
+            💰 How Earn Works
         </h3>
 
         <p>
-            Come back once every 24 hours to claim
-            your daily reward.
+            Complete available tasks to earn money
+            and increase your Zavero balance.
         </p>
 
         <br>
 
         <p>
-            After claiming today's reward, the button
-            will be locked until the next 24-hour period.
+            Your daily reward can be claimed once
+            every 24 hours.
         </p>
 
     </div>
@@ -246,13 +402,9 @@ body {
 
 <script>
 
-const REWARD_AMOUNT = 100;
-
-const CLAIM_INTERVAL =
-    24 * 60 * 60 * 1000;
-
-
-/* Get current balance */
+/* =========================
+   BALANCE
+========================= */
 
 function getBalance() {
 
@@ -263,8 +415,6 @@ function getBalance() {
 }
 
 
-/* Display balance */
-
 function updateBalance() {
 
     document.getElementById("balance").innerText =
@@ -273,72 +423,120 @@ function updateBalance() {
 }
 
 
-/* Get last claim time */
+/* =========================
+   ADD MONEY
+========================= */
 
-function getLastClaimTime() {
+function addMoney(amount) {
+
+    let balance = getBalance();
+
+    balance += amount;
+
+    localStorage.setItem(
+        "zaveroBalance",
+        balance.toString()
+    );
+
+    updateBalance();
+
+}
+
+
+/* =========================
+   DAILY REWARD
+========================= */
+
+const DAILY_REWARD = 100;
+
+const DAY =
+    24 * 60 * 60 * 1000;
+
+
+function getLastDailyClaim() {
 
     return Number(
-        localStorage.getItem("zaveroDailyClaim") || 0
+        localStorage.getItem(
+            "zaveroDailyClaim"
+        ) || 0
     );
 
 }
 
 
-/* Update reward timer */
+function updateDailyReward() {
 
-function updateTimer() {
+    const lastClaim =
+        getLastDailyClaim();
 
-    const lastClaim = getLastClaimTime();
+    const now =
+        Date.now();
 
-    const now = Date.now();
-
-    const difference = now - lastClaim;
+    const elapsed =
+        now - lastClaim;
 
     const button =
-        document.getElementById("claimButton");
+        document.getElementById(
+            "dailyButton"
+        );
 
     const timer =
-        document.getElementById("timer");
+        document.getElementById(
+            "dailyTimer"
+        );
 
+
+    /* Reward available */
 
     if (
         lastClaim === 0 ||
-        difference >= CLAIM_INTERVAL
+        elapsed >= DAY
     ) {
-
-        timer.innerText = "Available now";
 
         button.disabled = false;
 
         button.innerText =
-            "Claim Today's ₦100";
+            "Claim ₦100";
+
+        timer.innerText =
+            "Available now";
 
         return;
+
     }
 
 
+    /* Still locked */
+
     button.disabled = true;
 
+    button.innerText =
+        "Already Claimed";
+
+
     const remaining =
-        CLAIM_INTERVAL - difference;
+        DAY - elapsed;
 
 
     const hours =
         Math.floor(
-            remaining / (1000 * 60 * 60)
+            remaining /
+            (1000 * 60 * 60)
         );
 
 
     const minutes =
         Math.floor(
-            (remaining % (1000 * 60 * 60)) /
+            (remaining %
+            (1000 * 60 * 60)) /
             (1000 * 60)
         );
 
 
     const seconds =
         Math.floor(
-            (remaining % (1000 * 60)) /
+            (remaining %
+            (1000 * 60)) /
             1000
         );
 
@@ -349,94 +547,191 @@ function updateTimer() {
         minutes + "m " +
         seconds + "s";
 
-
-    button.innerText =
-        "Already Claimed";
-
 }
 
 
 /* Claim daily reward */
 
 document
-.getElementById("claimButton")
-.addEventListener("click", function () {
+.getElementById("dailyButton")
+.addEventListener(
+    "click",
+    function () {
 
-    const lastClaim =
-        getLastClaimTime();
+        const lastClaim =
+            getLastDailyClaim();
 
-    const now =
-        Date.now();
+        const now =
+            Date.now();
 
 
-    if (
-        lastClaim !== 0 &&
-        now - lastClaim < CLAIM_INTERVAL
-    ) {
-        return;
+        if (
+            lastClaim !== 0 &&
+            now - lastClaim < DAY
+        ) {
+
+            return;
+
+        }
+
+
+        addMoney(
+            DAILY_REWARD
+        );
+
+
+        localStorage.setItem(
+            "zaveroDailyClaim",
+            now.toString()
+        );
+
+
+        document.getElementById(
+            "message"
+        ).innerText =
+            "🎉 You received ₦100!";
+
+
+        document.getElementById(
+            "message"
+        ).style.color =
+            "#20d968";
+
+
+        updateDailyReward();
+
     }
+);
 
 
-    let balance =
-        getBalance();
+/* =========================
+   WATCH & EARN
+========================= */
+
+document
+.getElementById("watchButton")
+.addEventListener(
+    "click",
+    function () {
+
+        const button = this;
+
+        button.disabled = true;
+
+        button.innerText =
+            "Watching...";
 
 
-    balance += REWARD_AMOUNT;
+        document.getElementById(
+            "message"
+        ).innerText =
+            "▶️ Watch the video for 10 seconds...";
 
 
-    localStorage.setItem(
-        "zaveroBalance",
-        balance.toString()
-    );
+        setTimeout(
+            function () {
+
+                addMoney(50);
+
+                button.disabled =
+                    false;
+
+                button.innerText =
+                    "Watch Video";
 
 
-    localStorage.setItem(
-        "zaveroDailyClaim",
-        now.toString()
-    );
+                document.getElementById(
+                    "message"
+                ).innerText =
+                    "🎉 You earned ₦50!";
+
+            },
+            10000
+        );
+
+    }
+);
 
 
-    const message =
-        document.getElementById("message");
+/* =========================
+   SOCIAL TASK
+========================= */
+
+document
+.getElementById("socialButton")
+.addEventListener(
+    "click",
+    function () {
+
+        const button = this;
+
+        button.disabled = true;
+
+        button.innerText =
+            "Completing...";
 
 
-    message.innerText =
-        "🎉 You received ₦100!";
+        document.getElementById(
+            "message"
+        ).innerText =
+            "📱 Completing social task...";
 
 
-    message.style.color =
-        "#20d968";
+        setTimeout(
+            function () {
+
+                addMoney(50);
+
+                button.disabled =
+                    false;
+
+                button.innerText =
+                    "Start Task";
 
 
-    updateBalance();
+                document.getElementById(
+                    "message"
+                ).innerText =
+                    "🎉 You earned ₦50!";
 
-    updateTimer();
+            },
+            5000
+        );
 
-});
+    }
+);
 
 
-/* Back to home */
+/* =========================
+   BACK BUTTON
+========================= */
 
 document
 .getElementById("backButton")
-.addEventListener("click", function () {
+.addEventListener(
+    "click",
+    function () {
 
-    window.location.href = "index.html";
+        window.location.href =
+            "index.html";
 
-});
+    }
+);
 
 
-/* Start page */
+/* =========================
+   START
+========================= */
 
 updateBalance();
 
-updateTimer();
+updateDailyReward();
 
 
-/* Update countdown every second */
+/* Update timer every second */
 
 setInterval(
-    updateTimer,
+    updateDailyReward,
     1000
 );
 
@@ -444,4 +739,4 @@ setInterval(
 
 </body>
 
-  </html>
+        </html>
