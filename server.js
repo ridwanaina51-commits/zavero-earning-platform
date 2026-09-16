@@ -1,5 +1,4 @@
 const express = require("express");
-const { Pool } = require("pg");
 
 const app = express();
 
@@ -13,32 +12,9 @@ app.use((req, res, next) => {
     next();
 });
 
-/* Permanent PostgreSQL database */
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false
-    }
-});
-
-/* Create database tables */
-async function setupDatabase() {
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS users (
-            email TEXT PRIMARY KEY,
-            balance NUMERIC(12,2) NOT NULL DEFAULT 0
-        );
-    `);
-
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS payments (
-            reference TEXT PRIMARY KEY,
-            email TEXT NOT NULL,
-            amount NUMERIC(12,2) NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-    `);
-}
+/* Temporary server-side balances */
+const userBalances = {};
+const verifiedPayments = new Set();
 
 /* Home */
 app.get("/", (req, res) => {
@@ -54,7 +30,7 @@ app.get("/test", (req, res) => {
 });
 
 /* Get user balance */
-app.get("/balance", async (req, res) => {
+app.get("/balance", (req, res) => {
     const email = req.query.email;
 
     if (!email) {
@@ -64,37 +40,10 @@ app.get("/balance", async (req, res) => {
         });
     }
 
-    try {
-        const result = await pool.query(
-            "SELECT balance FROM users WHERE email = $1",
-            [email]
-        );
-
-        if (result.rows.length === 0) {
-            await pool.query(
-                "INSERT INTO users (email, balance) VALUES ($1, 0)",
-                [email]
-            );
-
-            return res.json({
-                success: true,
-                balance: 0
-            });
-        }
-
-        res.json({
-            success: true,
-            balance: Number(result.rows[0].balance)
-        });
-
-    } catch (error) {
-        console.error("Balance error:", error);
-
-        res.status(500).json({
-            success: false,
-            message: "Could not get balance."
-        });
-    }
+    res.json({
+        success: true,
+        balance: userBalances[email] || 0
+    });
 });
 
 /* Payment success page */
@@ -283,8 +232,6 @@ app.post("/verify-payment", async (req, res) => {
         });
     }
 
-    const client = await pool.connect();
-
     try {
 
         const response = await fetch(
@@ -340,21 +287,8 @@ app.post("/verify-payment", async (req, res) => {
         const amount =
             transaction.amount / 100;
 
-        await client.query("BEGIN");
-
-        const existingPayment = await client.query(
-            "SELECT reference FROM payments WHERE reference = $1",
-            [reference]
-        );
-
-        if (existingPayment.rows.length > 0) {
-
-            await client.query("ROLLBACK");
-
-            const balanceResult = await pool.query(
-                "SELECT balance FROM users WHERE email = $1",
-                [email]
-            );
+        /* Prevent duplicate credit */
+        if (verifiedPayments.has(reference)) {
 
             return res.json({
                 success: true,
@@ -368,35 +302,15 @@ app.post("/verify-payment", async (req, res) => {
                 currency: "NGN",
 
                 balance:
-                    Number(
-                        balanceResult.rows[0]?.balance || 0
-                    )
+                    userBalances[email] || 0
             });
         }
 
-        await client.query(
-            `INSERT INTO users (email, balance)
-             VALUES ($1, $2)
-             ON CONFLICT (email)
-             DO UPDATE SET balance =
-                 users.balance + $2`,
-            [email, amount]
-        );
+        /* Add verified payment to balance */
+        userBalances[email] =
+            (userBalances[email] || 0) + amount;
 
-        await client.query(
-            `INSERT INTO payments
-             (reference, email, amount)
-             VALUES ($1, $2, $3)`,
-            [reference, email, amount]
-        );
-
-        const balanceResult =
-            await client.query(
-                "SELECT balance FROM users WHERE email = $1",
-                [email]
-            );
-
-        await client.query("COMMIT");
+        verifiedPayments.add(reference);
 
         res.json({
             success: true,
@@ -411,12 +325,10 @@ app.post("/verify-payment", async (req, res) => {
             currency: "NGN",
 
             balance:
-                Number(balanceResult.rows[0].balance)
+                userBalances[email]
         });
 
     } catch (error) {
-
-        await client.query("ROLLBACK");
 
         console.error(
             "Verify payment error:",
@@ -428,10 +340,6 @@ app.post("/verify-payment", async (req, res) => {
             message:
                 "Could not verify payment."
         });
-
-    } finally {
-
-        client.release();
     }
 });
 
@@ -439,25 +347,8 @@ app.post("/verify-payment", async (req, res) => {
 const PORT =
     process.env.PORT || 3000;
 
-app.listen(PORT, async () => {
-
+app.listen(PORT, () => {
     console.log(
         "Zavero backend running on port " + PORT
     );
-
-    try {
-
-        await setupDatabase();
-
-        console.log(
-            "PostgreSQL database is ready."
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Database setup error:",
-            error
-        );
-    }
 });
