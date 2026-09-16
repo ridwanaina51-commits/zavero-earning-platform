@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Zavero - Earn</title>
+
+<style>
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: #090a24;
+    color: white;
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 480px;
+    margin: auto;
+    padding: 25px 20px 40px;
+}
+
+.logo {
+    text-align: center;
+    color: #7667ff;
+    font-size: 30px;
+    font-weight: bold;
+    margin-bottom: 25px;
+}
+
+.back {
+    background: #151633;
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    margin-bottom: 20px;
+    font-size: 15px;
+}
+
+.title {
+    text-align: center;
+    font-size: 28px;
+    margin: 15px 0 8px;
+}
+
+.subtitle {
+    text-align: center;
+    color: #aaa;
+    margin-bottom: 25px;
+}
+
+.balance-card {
+    background: #111332;
+    border: 1px solid #292b50;
+    border-radius: 18px;
+    padding: 20px;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.balance-label {
+    color: #aaa;
+    font-size: 14px;
+}
+
+.balance {
+    font-size: 30px;
+    font-weight: bold;
+    margin-top: 8px;
+}
+
+.earn-card {
+    background: linear-gradient(135deg, #5142e8, #7667ff);
+    border-radius: 25px;
+    padding: 30px 20px;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.earn-icon {
+    font-size: 45px;
+    margin-bottom: 10px;
+}
+
+.earn-title {
+    font-size: 22px;
+    font-weight: bold;
+}
+
+.reward {
+    font-size: 36px;
+    font-weight: bold;
+    margin: 15px 0;
+}
+
+.timer {
+    background: rgba(0,0,0,.2);
+    padding: 12px;
+    border-radius: 12px;
+    margin: 15px 0;
+}
+
+.claim-button {
+    width: 100%;
+    border: none;
+    border-radius: 12px;
+    padding: 14px;
+    margin: 10px 0 0;
+    background: #20d968;
+    color: white;
+    font-size: 17px;
+    cursor: pointer;
+}
+
+.claim-button:disabled {
+    background: #555;
+    color: #bbb;
+    cursor: not-allowed;
+}
+
+.message {
+    text-align: center;
+    margin-top: 15px;
+    min-height: 20px;
+}
+
+.info {
+    background: #111332;
+    border: 1px solid #292b50;
+    border-radius: 18px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.info h3 {
+    margin-bottom: 12px;
+}
+
+.info p {
+    color: #aaa;
+    line-height: 1.6;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="logo">
+        ZAVERO
+    </div>
+
+    <button
+        class="back"
+        id="backButton"
+        type="button">
+        ← Back
+    </button>
+
+    <h1 class="title">
+        ⚡ Earn
+    </h1>
+
+    <p class="subtitle">
+        Claim your daily reward every 24 hours.
+    </p>
+
+
+    <div class="balance-card">
+
+        <div class="balance-label">
+            YOUR BALANCE
+        </div>
+
+        <div class="balance">
+            ₦<span id="balance">0</span>
+        </div>
+
+    </div>
+
+
+    <div class="earn-card">
+
+        <div class="earn-icon">
+            🎁
+        </div>
+
+        <div class="earn-title">
+            Daily Reward
+        </div>
+
+        <div class="reward">
+            +₦100
+        </div>
+
+        <div id="timer" class="timer">
+            Available now
+        </div>
+
+        <button
+            id="claimButton"
+            class="claim-button"
+            type="button">
+            Claim Today's ₦100
+        </button>
+
+        <p id="message" class="message"></p>
+
+    </div>
+
+
+    <div class="info">
+
+        <h3>
+            How Daily Earnings Work
+        </h3>
+
+        <p>
+            Come back once every 24 hours to claim
+            your daily reward.
+        </p>
+
+        <br>
+
+        <p>
+            After claiming today's reward, the button
+            will be locked until the next 24-hour period.
+        </p>
+
+    </div>
+
+</div>
+
+
+<script>
+
+const REWARD_AMOUNT = 100;
+
+const CLAIM_INTERVAL =
+    24 * 60 * 60 * 1000;
+
+
+/* Get current balance */
+
+function getBalance() {
+
+    return Number(
+        localStorage.getItem("zaveroBalance") || 0
+    );
+
+}
+
+
+/* Display balance */
+
+function updateBalance() {
+
+    document.getElementById("balance").innerText =
+        getBalance().toLocaleString();
+
+}
+
+
+/* Get last claim time */
+
+function getLastClaimTime() {
+
+    return Number(
+        localStorage.getItem("zaveroDailyClaim") || 0
+    );
+
+}
+
+
+/* Update reward timer */
+
+function updateTimer() {
+
+    const lastClaim = getLastClaimTime();
+
+    const now = Date.now();
+
+    const difference = now - lastClaim;
+
+    const button =
+        document.getElementById("claimButton");
+
+    const timer =
+        document.getElementById("timer");
+
+
+    if (
+        lastClaim === 0 ||
+        difference >= CLAIM_INTERVAL
+    ) {
+
+        timer.innerText = "Available now";
+
+        button.disabled = false;
+
+        button.innerText =
+            "Claim Today's ₦100";
+
+        return;
+    }
+
+
+    button.disabled = true;
+
+    const remaining =
+        CLAIM_INTERVAL - difference;
+
+
+    const hours =
+        Math.floor(
+            remaining / (1000 * 60 * 60)
+        );
+
+
+    const minutes =
+        Math.floor(
+            (remaining % (1000 * 60 * 60)) /
+            (1000 * 60)
+        );
+
+
+    const seconds =
+        Math.floor(
+            (remaining % (1000 * 60)) /
+            1000
+        );
+
+
+    timer.innerText =
+        "Next reward in " +
+        hours + "h " +
+        minutes + "m " +
+        seconds + "s";
+
+
+    button.innerText =
+        "Already Claimed";
+
+}
+
+
+/* Claim daily reward */
+
+document
+.getElementById("claimButton")
+.addEventListener("click", function () {
+
+    const lastClaim =
+        getLastClaimTime();
+
+    const now =
+        Date.now();
+
+
+    if (
+        lastClaim !== 0 &&
+        now - lastClaim < CLAIM_INTERVAL
+    ) {
+        return;
+    }
+
+
+    let balance =
+        getBalance();
+
+
+    balance += REWARD_AMOUNT;
+
+
+    localStorage.setItem(
+        "zaveroBalance",
+        balance.toString()
+    );
+
+
+    localStorage.setItem(
+        "zaveroDailyClaim",
+        now.toString()
+    );
+
+
+    const message =
+        document.getElementById("message");
+
+
+    message.innerText =
+        "🎉 You received ₦100!";
+
+
+    message.style.color =
+        "#20d968";
+
+
+    updateBalance();
+
+    updateTimer();
+
+});
+
+
+/* Back to home */
+
+document
+.getElementById("backButton")
+.addEventListener("click", function () {
+
+    window.location.href = "index.html";
+
+});
+
+
+/* Start page */
+
+updateBalance();
+
+updateTimer();
+
+
+/* Update countdown every second */
+
+setInterval(
+    updateTimer,
+    1000
+);
+
+</script>
+
+</body>
+
+  </html>
