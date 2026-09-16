@@ -1,0 +1,986 @@
+DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zavero</title>
+
+<style>
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: #090a24;
+    color: white;
+    min-height: 100vh;
+    padding-bottom: 90px;
+}
+
+button {
+    border: none;
+    border-radius: 12px;
+    padding: 14px 22px;
+    margin: 8px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+input,
+select {
+    display: block;
+    width: 90%;
+    max-width: 360px;
+    margin: 10px auto;
+    padding: 14px;
+    border: none;
+    border-radius: 10px;
+    background: #151633;
+    color: white;
+}
+
+.login {
+    background: #5142e8;
+    color: white;
+}
+
+.signup {
+    background: #20d968;
+    color: white;
+}
+
+#loginPage,
+#signupPage,
+#dashboard {
+    display: none;
+}
+
+.box {
+    max-width: 480px;
+    margin: auto;
+    padding: 35px 20px;
+    text-align: center;
+}
+
+/* HOME */
+
+#homePage {
+    text-align: center;
+    padding: 45px 20px;
+}
+
+#homePage h1 {
+    color: #7667ff;
+    font-size: 32px;
+    margin-bottom: 20px;
+}
+
+/* DASHBOARD */
+
+.app {
+    max-width: 480px;
+    margin: auto;
+    padding: 20px;
+}
+
+.logo {
+    text-align: center;
+    color: #7667ff;
+    font-size: 30px;
+    font-weight: bold;
+    margin: 15px 0;
+}
+
+.welcome {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.balance-card {
+    background: linear-gradient(135deg, #5142e8, #7667ff);
+    padding: 30px 20px;
+    border-radius: 25px;
+    text-align: center;
+}
+
+.balance-title {
+    font-size: 14px;
+    opacity: .9;
+}
+
+.balance {
+    font-size: 40px;
+    font-weight: bold;
+    margin: 15px 0;
+}
+
+.earned {
+    opacity: .9;
+}
+
+.section-title {
+    font-size: 22px;
+    font-weight: bold;
+    margin: 30px 0 15px;
+}
+
+.task,
+.money-box {
+    background: #111332;
+    border: 1px solid #292b50;
+    border-radius: 18px;
+    padding: 18px;
+    margin-bottom: 15px;
+}
+
+.task h3 {
+    margin-bottom: 8px;
+}
+
+.reward {
+    color: #45e68b;
+    font-size: 14px;
+}
+
+.task-buttons {
+    display: flex;
+    gap: 8px;
+    margin-top: 15px;
+}
+
+.task-buttons button {
+    flex: 1;
+    margin: 0;
+}
+
+.open {
+    background: #20d968;
+    color: white;
+}
+
+.claim {
+    background: #5142e8;
+    color: white;
+}
+
+.withdraw-button {
+    background: #5142e8;
+    color: white;
+}
+
+.deposit-button {
+    background: #20d968;
+    color: white;
+}
+
+.logout {
+    background: #d93636;
+    color: white;
+    width: 90%;
+}
+
+.message {
+    margin: 12px;
+}
+
+/* BOTTOM NAV */
+
+.bottom-nav {
+    position: fixed;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 25px);
+    max-width: 460px;
+    background: #151633;
+    border: 1px solid #292b50;
+    border-radius: 22px;
+    padding: 10px;
+    display: flex;
+    justify-content: space-around;
+}
+
+.nav-item {
+    text-align: center;
+    color: #aaa;
+    font-size: 12px;
+}
+
+.nav-icon {
+    display: block;
+    font-size: 22px;
+    margin-bottom: 4px;
+}
+
+.nav-item.active {
+    color: white;
+}
+</style>
+</head>
+
+<body>
+
+<!-- HOME -->
+
+<div id="homePage">
+
+    <h1>ZAVERO</h1>
+
+    <h2>Welcome to Zavero</h2>
+
+    <p style="margin:20px 0;">
+        Earn rewards by completing tasks.
+    </p>
+
+    <button id="loginButton" class="login" type="button">
+        Login
+    </button>
+
+    <button id="signupButton" class="signup" type="button">
+        Sign Up
+    </button>
+
+</div>
+
+
+<!-- LOGIN -->
+
+<div id="loginPage" class="box">
+
+    <h2>🔐 Login</h2>
+
+    <input
+        id="loginName"
+        type="text"
+        placeholder="Enter your name"
+    >
+
+    <input
+        id="loginPassword"
+        type="password"
+        placeholder="Enter your password"
+    >
+
+    <button id="loginSubmit" class="login" type="button">
+        Login
+    </button>
+
+    <button id="loginBack" type="button">
+        Back
+    </button>
+
+    <p id="loginMessage" class="message"></p>
+
+</div>
+
+
+<!-- SIGN UP -->
+
+<div id="signupPage" class="box">
+
+    <h2>📝 Create Account</h2>
+
+    <input
+        id="signupName"
+        type="text"
+        placeholder="Enter your name"
+    >
+
+    <input
+        id="signupEmail"
+        type="email"
+        placeholder="Enter your email"
+    >
+
+    <input
+        id="signupPassword"
+        type="password"
+        placeholder="Create password"
+    >
+
+    <input
+        id="signupConfirm"
+        type="password"
+        placeholder="Confirm password"
+    >
+
+    <button id="signupSubmit" class="signup" type="button">
+        Sign Up
+    </button>
+
+    <button id="signupBack" type="button">
+        Back
+    </button>
+
+    <p id="signupMessage" class="message"></p>
+
+</div>
+
+
+<!-- DASHBOARD -->
+
+<div id="dashboard" class="app">
+
+    <div class="logo">
+        ZAVERO
+    </div>
+
+    <div class="welcome">
+        Welcome, <span id="userName"></span> 👋
+    </div>
+
+
+    <!-- BALANCE -->
+
+    <div class="balance-card">
+
+        <div class="balance-title">
+            TOTAL BALANCE
+        </div>
+
+        <div class="balance">
+            ₦<span id="balance">0</span>
+        </div>
+
+        <div class="earned">
+            Total earned:
+            ₦<span id="earnings">0</span>
+        </div>
+
+    </div>
+
+
+    <!-- TASKS -->
+
+    <div class="section-title">
+        Social Tasks · Earn Rewards
+    </div>
+
+
+    <div class="task">
+
+        <h3>💬 Join our community</h3>
+
+        <div class="reward">
+            +₦100 · One time only
+        </div>
+
+        <div class="task-buttons">
+
+            <button
+                class="open"
+                id="openTask1"
+                type="button">
+                Open ↗
+            </button>
+
+            <button
+                class="claim"
+                id="claimTask1"
+                type="button">
+                Claim ₦100
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <div class="task">
+
+        <h3>📱 Complete a simple task</h3>
+
+        <div class="reward">
+            +₦250 · One time only
+        </div>
+
+        <div class="task-buttons">
+
+            <button
+                class="open"
+                id="openTask2"
+                type="button">
+                Start
+            </button>
+
+            <button
+                class="claim"
+                id="claimTask2"
+                type="button">
+                Claim ₦250
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <button
+        class="login"
+        id="tasksButton"
+        type="button">
+        📋 View All Tasks
+    </button>
+
+
+    <!-- WITHDRAW -->
+
+    <div class="section-title">
+        💸 Withdraw Money
+    </div>
+
+    <div class="money-box">
+
+        <select id="bankName">
+
+            <option value="">
+                Select Bank
+            </option>
+
+            <option>Opay</option>
+            <option>Moniepoint</option>
+            <option>PalmPay</option>
+            <option>Access Bank</option>
+            <option>GTBank</option>
+            <option>First Bank</option>
+            <option>UBA</option>
+            <option>Zenith Bank</option>
+
+        </select>
+
+        <input
+            id="accountNumber"
+            type="text"
+            placeholder="Account Number"
+        >
+
+        <input
+            id="accountName"
+            type="text"
+            placeholder="Account Name"
+        >
+
+        <input
+            id="withdrawAmount"
+            type="number"
+            placeholder="Amount"
+        >
+
+        <button
+            id="withdrawButton"
+            class="withdraw-button"
+            type="button">
+            Submit Withdrawal
+        </button>
+
+        <p id="withdrawMessage" class="message"></p>
+
+    </div>
+
+
+    <!-- ADD MONEY -->
+
+    <div class="section-title">
+        💰 Add Money
+    </div>
+
+    <div class="money-box">
+
+        <input
+            id="depositAmount"
+            type="number"
+            placeholder="Enter amount"
+        >
+
+        <button
+            id="depositButton"
+            class="deposit-button"
+            type="button">
+            Pay
+        </button>
+
+        <p id="depositMessage" class="message"></p>
+
+    </div>
+
+
+    <!-- LOGOUT -->
+
+    <button
+        id="logoutButton"
+        class="logout"
+        type="button">
+        🚪 Logout
+    </button>
+
+</div>
+
+
+<!-- BOTTOM NAV -->
+
+<div class="bottom-nav">
+
+    <div class="nav-item active">
+        <span class="nav-icon">⌂</span>
+        Home
+    </div>
+
+    <div class="nav-item">
+        <span class="nav-icon">ϟ</span>
+        Earn
+    </div>
+
+    <div class="nav-item">
+        <span class="nav-icon">🏆</span>
+        Top
+    </div>
+
+    <div class="nav-item">
+        <span class="nav-icon">♧</span>
+        Invite
+    </div>
+
+    <div class="nav-item">
+        <span class="nav-icon">▣</span>
+        Wallet
+    </div>
+
+</div>
+
+
+<script>
+
+const BACKEND_URL =
+    "https://zavero-earning-platform.onrender.com";
+
+
+/* ================= HOME → LOGIN ================= */
+
+document
+.getElementById("loginButton")
+.addEventListener("click", function () {
+
+    document.getElementById("homePage").style.display = "none";
+    document.getElementById("signupPage").style.display = "none";
+    document.getElementById("dashboard").style.display = "none";
+    document.getElementById("loginPage").style.display = "block";
+
+});
+
+
+/* ================= HOME → SIGN UP ================= */
+
+document
+.getElementById("signupButton")
+.addEventListener("click", function () {
+
+    document.getElementById("homePage").style.display = "none";
+    document.getElementById("loginPage").style.display = "none";
+    document.getElementById("dashboard").style.display = "none";
+    document.getElementById("signupPage").style.display = "block";
+
+});
+
+
+/* ================= BACK ================= */
+
+document
+.getElementById("loginBack")
+.addEventListener("click", function () {
+
+    document.getElementById("loginPage").style.display = "none";
+    document.getElementById("homePage").style.display = "block";
+
+});
+
+
+document
+.getElementById("signupBack")
+.addEventListener("click", function () {
+
+    document.getElementById("signupPage").style.display = "none";
+    document.getElementById("homePage").style.display = "block";
+
+});
+
+
+/* ================= SIGN UP ================= */
+
+document
+.getElementById("signupSubmit")
+.addEventListener("click", function () {
+
+    const name =
+        document.getElementById("signupName").value.trim();
+
+    const email =
+        document.getElementById("signupEmail").value.trim();
+
+    const password =
+        document.getElementById("signupPassword").value;
+
+    const confirm =
+        document.getElementById("signupConfirm").value;
+
+    const message =
+        document.getElementById("signupMessage");
+
+
+    if (
+        name === "" ||
+        email === "" ||
+        password === "" ||
+        confirm === ""
+    ) {
+
+        message.innerText =
+            "Please fill in all fields.";
+
+        message.style.color = "red";
+
+        return;
+    }
+
+
+    if (password.length < 6) {
+
+        message.innerText =
+            "Password must be at least 6 characters.";
+
+        message.style.color = "red";
+
+        return;
+    }
+
+
+    if (password !== confirm) {
+
+        message.innerText =
+            "Passwords do not match.";
+
+        message.style.color = "red";
+
+        return;
+    }
+
+
+    localStorage.setItem("zaveroName", name);
+    localStorage.setItem("zaveroEmail", email);
+    localStorage.setItem("zaveroPassword", password);
+    localStorage.setItem("zaveroBalance", "0");
+    localStorage.setItem("zaveroEarnings", "0");
+
+    showDashboard(name);
+
+});
+
+
+/* ================= LOGIN ================= */
+
+document
+.getElementById("loginSubmit")
+.addEventListener("click", function () {
+
+    const name =
+        document.getElementById("loginName").value.trim();
+
+    const password =
+        document.getElementById("loginPassword").value;
+
+    const savedName =
+        localStorage.getItem("zaveroName");
+
+    const savedPassword =
+        localStorage.getItem("zaveroPassword");
+
+    const message =
+        document.getElementById("loginMessage");
+
+
+    if (name === "" || password === "") {
+
+        message.innerText =
+            "Please enter your name and password.";
+
+        message.style.color = "red";
+
+        return;
+    }
+
+
+    if (
+        name === savedName &&
+        password === savedPassword
+    ) {
+
+        showDashboard(name);
+
+    } else {
+
+        message.innerText =
+            "Incorrect name or password.";
+
+        message.style.color = "red";
+
+    }
+
+});
+
+
+/* ================= DASHBOARD ================= */
+
+function showDashboard(name) {
+
+    document.getElementById("homePage").style.display = "none";
+    document.getElementById("loginPage").style.display = "none";
+    document.getElementById("signupPage").style.display = "none";
+    document.getElementById("dashboard").style.display = "block";
+
+    document.getElementById("userName").innerText = name;
+
+    document.getElementById("balance").innerText =
+        fetch("https://zavero-earning-platform.onrender.com/balance?email=" + encodeURIComponent(localStorage.getItem("zaveroEmail")))
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById("balance").innerText =
+                "₦" + Number(data.balance).toLocaleString();
+        }
+    })
+    .catch(error => {
+        console.error("Balance error:", error);
+    });
+
+    document.getElementById("earnings").innerText =
+        localStorage.getItem("zaveroEarnings") || "0";
+
+}
+
+
+/* ================= TASKS ================= */
+
+document
+.getElementById("tasksButton")
+.addEventListener("click", function () {
+
+    window.location.href = "tasks.html";
+
+});
+
+
+document
+.getElementById("openTask1")
+.addEventListener("click", function () {
+
+    alert("Task link will be added here.");
+
+});
+
+
+document
+.getElementById("openTask2")
+.addEventListener("click", function () {
+
+    alert("Task link will be added here.");
+
+});
+
+
+document
+.getElementById("claimTask1")
+.addEventListener("click", function () {
+
+    alert("Task verification will be connected later.");
+
+});
+
+
+document
+.getElementById("claimTask2")
+.addEventListener("click", function () {
+
+    alert("Task verification will be connected later.");
+
+});
+
+
+/* ================= WITHDRAW ================= */
+
+document
+.getElementById("withdrawButton")
+.addEventListener("click", function () {
+
+    const bank =
+        document.getElementById("bankName").value;
+
+    const accountNumber =
+        document.getElementById("accountNumber").value.trim();
+
+    const accountName =
+        document.getElementById("accountName").value.trim();
+
+    const amount =
+        document.getElementById("withdrawAmount").value;
+
+    const message =
+        document.getElementById("withdrawMessage");
+
+
+    if (
+        bank === "" ||
+        accountNumber === "" ||
+        accountName === "" ||
+        amount === ""
+    ) {
+
+        message.innerText =
+            "Please fill in all withdrawal details.";
+
+        message.style.color = "red";
+
+        return;
+    }
+
+
+    message.innerText =
+        "Withdrawal request submitted.";
+
+    message.style.color =
+        "#20d968";
+
+});
+
+
+/* ================= ADD MONEY / PAYSTACK ================= */
+
+document
+.getElementById("depositButton")
+.addEventListener("click", async function () {
+
+    const amount =
+        document.getElementById("depositAmount").value.trim();
+
+    const message =
+        document.getElementById("depositMessage");
+
+    const name =
+        localStorage.getItem("zaveroName");
+
+    const email =
+        localStorage.getItem("zaveroEmail");
+
+
+    if (amount === "" || Number(amount) <= 0) {
+
+        message.innerText =
+            "Please enter a valid amount.";
+
+        message.style.color =
+            "red";
+
+        return;
+    }
+
+
+    if (!name || !email) {
+
+        message.innerText =
+            "Please login again.";
+
+        message.style.color =
+            "red";
+
+        return;
+    }
+
+
+    message.innerText =
+        "Opening Paystack...";
+
+    message.style.color =
+        "#aaa";
+
+
+    try {
+
+        const response =
+            await fetch(
+                BACKEND_URL + "/initialize-payment",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        name: name,
+                        email: email,
+                        amount: Number(amount)
+                    })
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (
+            data.success &&
+            data.authorization_url
+        ) {
+
+            window.location.href =
+                data.authorization_url;
+
+        } else {
+
+            message.innerText =
+                data.message ||
+                "Could not start payment.";
+
+            message.style.color =
+                "red";
+
+        }
+
+
+    } catch (error) {
+
+        console.error(
+            "Paystack error:",
+            error
+        );
+
+        message.innerText =
+            "Could not connect to the server.";
+
+        message.style.color =
+            "red";
+
+    }
+
+});
+
+
+/* ================= LOGOUT ================= */
+
+document
+.getElementById("logoutButton")
+.addEventListener("click", function () {
+
+    document.getElementById("dashboard").style.display = "none";
+
+    document.getElementById("homePage").style.display = "block";
+
+});
+
+</script>
+
+</body>
+</html>
