@@ -16,7 +16,8 @@ next();
 const userBalances = {};
 const verifiedPayments = new Set();
 const userVIP = {};
-
+/* VIP daily claim tracking */
+const lastVIPClaim = {};
 /* VIP plans */
 const vipPlans = {
 1: { price: 1500, dailyReward: 200 },
@@ -452,7 +453,75 @@ res.json({
 });
 
 });
+/* VIP Daily Claim */
+app.post("/claim-vip", (req, res) => {
 
+    const { email } = req.body;
+
+    if (!email) {
+        return res.status(400).json({
+            success: false,
+            message: "Email is required."
+        });
+    }
+
+    const membership = userVIP[email];
+
+    if (!membership) {
+        return res.json({
+            success: false,
+            message: "You are not a VIP member yet."
+        });
+    }
+
+    const now = Date.now();
+    const lastClaim = lastVIPClaim[email] || 0;
+
+    const twentyFourHours = 24 * 60 * 60 * 1000;
+
+    if (now - lastClaim < twentyFourHours) {
+
+        const remaining =
+            twentyFourHours - (now - lastClaim);
+
+        const hours =
+            Math.floor(remaining / (60 * 60 * 1000));
+
+        const minutes =
+            Math.floor(
+                (remaining % (60 * 60 * 1000)) /
+                (60 * 1000)
+            );
+
+        return res.json({
+            success: false,
+            message:
+                "You have already claimed your VIP reward. Try again in " +
+                hours +
+                " hours " +
+                minutes +
+                " minutes."
+        });
+    }
+
+    const reward =
+        membership.dailyReward;
+
+    userBalances[email] =
+        (userBalances[email] || 0) + reward;
+
+    lastVIPClaim[email] = now;
+
+    res.json({
+        success: true,
+        message:
+            "VIP daily reward claimed successfully! You received ₦" +
+            reward.toLocaleString() +
+            ".",
+        reward: reward,
+        balance: userBalances[email]
+    });
+});
 /* Start server */
 const PORT =
 process.env.PORT || 3000;
