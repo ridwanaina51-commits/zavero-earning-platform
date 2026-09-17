@@ -1,11 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
+
 <title>Zavero</title>
 
 <style>
+
 * {
     box-sizing: border-box;
     margin: 0;
@@ -201,6 +207,7 @@ select {
     text-align: center;
     color: #aaa;
     font-size: 12px;
+    cursor: pointer;
 }
 
 .nav-icon {
@@ -212,10 +219,15 @@ select {
 .nav-item.active {
     color: white;
 }
+
 </style>
+
 </head>
 
 <body>
+
+
+<!-- HOME -->
 
 <div id="homePage">
 
@@ -224,18 +236,27 @@ select {
     <h2>Welcome to Zavero</h2>
 
     <p style="margin:20px 0;">
-        Earn rewards by completing tasks.
+        Earn rewards by completing tasks and upgrading vip
     </p>
 
-    <button id="loginButton" class="login" type="button">
+    <button
+        id="loginButton"
+        class="login"
+        type="button">
         Login
     </button>
 
-    <button id="signupButton" class="signup" type="button">
+    <button
+        id="signupButton"
+        class="signup"
+        type="button">
         Sign Up
     </button>
 
 </div>
+
+
+<!-- LOGIN -->
 
 <div id="loginPage" class="box">
 
@@ -244,26 +265,35 @@ select {
     <input
         id="loginName"
         type="text"
-        placeholder="Enter your name"
-    >
+        placeholder="Enter your name">
 
     <input
         id="loginPassword"
         type="password"
-        placeholder="Enter your password"
-    >
+        placeholder="Enter your password">
 
-    <button id="loginSubmit" class="login" type="button">
+    <button
+        id="loginSubmit"
+        class="login"
+        type="button">
         Login
     </button>
 
-    <button id="loginBack" type="button">
+    <button
+        id="loginBack"
+        type="button">
         Back
     </button>
 
-    <p id="loginMessage" class="message"></p>
+    <p
+        id="loginMessage"
+        class="message">
+    </p>
 
 </div>
+
+
+<!-- SIGN UP -->
 
 <div id="signupPage" class="box">
 
@@ -272,38 +302,45 @@ select {
     <input
         id="signupName"
         type="text"
-        placeholder="Enter your name"
-    >
+        placeholder="Enter your name">
 
     <input
         id="signupEmail"
         type="email"
-        placeholder="Enter your email"
-    >
+        placeholder="Enter your email">
 
     <input
         id="signupPassword"
         type="password"
-        placeholder="Create password"
-    >
+        placeholder="Create password">
 
     <input
         id="signupConfirm"
         type="password"
-        placeholder="Confirm password"
-    >
+        placeholder="Confirm password">
 
-    <button id="signupSubmit" class="signup" type="button">
+    <button
+        id="signupSubmit"
+        class="signup"
+        type="button">
         Sign Up
     </button>
 
-    <button id="signupBack" type="button">
+    <button
+        id="signupBack"
+        type="button">
         Back
     </button>
 
-    <p id="signupMessage" class="message"></p>
+    <p
+        id="signupMessage"
+        class="message">
+    </p>
 
 </div>
+
+
+<!-- DASHBOARD -->
 
 <div id="dashboard" class="app">
 
@@ -312,8 +349,12 @@ select {
     </div>
 
     <div class="welcome">
-        Welcome, <span id="userName"></span> 👋
+        Welcome,
+        <span id="userName"></span> 👋
     </div>
+
+
+    <!-- BALANCE -->
 
     <div class="balance-card">
 
@@ -332,13 +373,19 @@ select {
 
     </div>
 
+
+    <!-- TASKS -->
+
     <div class="section-title">
         Social Tasks · Earn Rewards
     </div>
 
+
     <div class="task">
 
-        <h3>💬 Join our community</h3>
+        <h3>
+            💬 Join our community
+        </h3>
 
         <div class="reward">
             +₦100 · One time only
@@ -364,9 +411,12 @@ select {
 
     </div>
 
+
     <div class="task">
 
-        <h3>📱 Complete a simple task</h3>
+        <h3>
+            📱 Complete a simple task
+        </h3>
 
         <div class="reward">
             +₦250 · One time only
@@ -392,12 +442,16 @@ select {
 
     </div>
 
+
     <button
         class="login"
         id="tasksButton"
         type="button">
         📋 View All Tasks
     </button>
+
+
+    <!-- WITHDRAW -->
 
     <div class="section-title">
         💸 Withdraw Money
@@ -425,20 +479,17 @@ select {
         <input
             id="accountNumber"
             type="text"
-            placeholder="Account Number"
-        >
+            placeholder="Account Number">
 
         <input
             id="accountName"
             type="text"
-            placeholder="Account Name"
-        >
+            placeholder="Account Name">
 
         <input
             id="withdrawAmount"
             type="number"
-            placeholder="Amount"
-        >
+            placeholder="Amount">
 
         <button
             id="withdrawButton"
@@ -447,9 +498,15 @@ select {
             Submit Withdrawal
         </button>
 
-        <p id="withdrawMessage" class="message"></p>
+        <p
+            id="withdrawMessage"
+            class="message">
+        </p>
 
     </div>
+
+
+    <!-- DEPOSIT -->
 
     <div class="section-title">
         💰 Add Money
@@ -460,8 +517,7 @@ select {
         <input
             id="depositAmount"
             type="number"
-            placeholder="Enter amount"
-        >
+            placeholder="Enter amount">
 
         <button
             id="depositButton"
@@ -470,9 +526,15 @@ select {
             Pay
         </button>
 
-        <p id="depositMessage" class="message"></p>
+        <p
+            id="depositMessage"
+            class="message">
+        </p>
 
     </div>
+
+
+    <!-- LOGOUT -->
 
     <button
         id="logoutButton"
@@ -483,84 +545,204 @@ select {
 
 </div>
 
+<!-- TOP PAGE -->
+
+<div id="topPage" style="display:none; max-width:480px; margin:auto; padding:20px;">
+
+    <h2 style="text-align:center; color:#7667ff; margin-bottom:10px;">
+        🏆 VIP MEMBERSHIP
+    </h2>
+
+    <p style="text-align:center; color:#aaa; margin-bottom:25px;">
+        Upgrade your VIP level
+    </p>
+
+    <div class="task">
+        <h3>VIP 1</h3>
+        <p style="color:#ffd84d;">₦1,500</p>
+        <p style="color:#45e68b;">Daily Claim: ₦200</p>
+        <button class="login" type="button" id="vip1Upgrade">Upgrade</button>
+    </div>
+
+    <div class="task">
+        <h3>VIP 2</h3>
+        <p style="color:#ffd84d;">₦5,000</p>
+        <p style="color:#45e68b;">Daily Claim: ₦800</p>
+        <button class="login" type="button" id="vip2Upgrade">Upgrade</button>
+    </div>
+
+    <div class="task">
+        <h3>VIP 3</h3>
+        <p style="color:#ffd84d;">₦10,000</p>
+        <p style="color:#45e68b;">Daily Claim: ₦1,750</p>
+        <button class="login" type="button" id="vip3Upgrade">Upgrade</button>
+    </div>
+
+    <div class="task">
+        <h3>VIP 4</h3>
+        <p style="color:#ffd84d;">₦25,000</p>
+        <p style="color:#45e68b;">Daily Claim: ₦4,100</p>
+        <button class="login" type="button" id="vip4Upgrade">Upgrade</button>
+    </div>
+
+    <div class="task">
+        <h3>VIP 5</h3>
+        <p style="color:#ffd84d;">₦50,000</p>
+        <p style="color:#45e68b;">Daily Claim: ₦7,500</p>
+        <button class="login" type="button" id="vip5Upgrade">Upgrade</button>
+    </div>
+
+    <div class="task">
+        <h3>VIP 6</h3>
+        <p style="color:#ffd84d;">₦100,000</p>
+        <p style="color:#45e68b;">Daily Claim: ₦15,000</p>
+        <button class="login" type="button" id="vip6Upgrade">Upgrade</button>
+    </div>
+
+    <button
+        id="backFromTop"
+        type="button">
+        ← Back
+    </button>
+
+</div>
+  
+<!-- BOTTOM NAVIGATION -->
+
 <div class="bottom-nav">
 
-    <div class="nav-item active">
-        <span class="nav-icon">⌂</span>
+    <div
+        class="nav-item active"
+        id="homeNav">
+
+        <span class="nav-icon">
+            ⌂
+        </span>
+
         Home
+
     </div>
 
-    <div class="nav-item">
-        <span class="nav-icon">ϟ</span>
+
+    <div
+        class="nav-item"
+        id="earnNav">
+
+        <span class="nav-icon">
+            ϟ
+        </span>
+
         Earn
+
     </div>
 
-    <div class="nav-item">
-        <span class="nav-icon">🏆</span>
-        Top
-    </div>
+
+
+        <div class="nav-item" id="topNav">
+
+    <span class="nav-icon">
+        🏆
+    </span>
+
+    Top
+
+        </div>
+
 
     <div class="nav-item">
-        <span class="nav-icon">♧</span>
+
+        <span class="nav-icon">
+            ♧
+        </span>
+
         Invite
+
     </div>
 
+
     <div class="nav-item">
-        <span class="nav-icon">▣</span>
+
+        <span class="nav-icon">
+            ▣
+        </span>
+
         Wallet
+
     </div>
 
 </div>
 
+
 <script>
+
+
+/* BACKEND */
 
 const BACKEND_URL =
     "https://zavero-earning-platform-1.onrender.com";
 
+
+/* LOGIN PAGE */
 
 document
 .getElementById("loginButton")
 .addEventListener("click", function () {
 
     document.getElementById("homePage").style.display = "none";
+
     document.getElementById("signupPage").style.display = "none";
+
     document.getElementById("dashboard").style.display = "none";
+
     document.getElementById("loginPage").style.display = "block";
 
 });
 
+
+/* SIGNUP PAGE */
 
 document
 .getElementById("signupButton")
 .addEventListener("click", function () {
 
     document.getElementById("homePage").style.display = "none";
+
     document.getElementById("loginPage").style.display = "none";
+
     document.getElementById("dashboard").style.display = "none";
+
     document.getElementById("signupPage").style.display = "block";
 
 });
 
+
+/* LOGIN BACK */
 
 document
 .getElementById("loginBack")
 .addEventListener("click", function () {
 
     document.getElementById("loginPage").style.display = "none";
+
     document.getElementById("homePage").style.display = "block";
 
 });
 
+
+/* SIGNUP BACK */
 
 document
 .getElementById("signupBack")
 .addEventListener("click", function () {
 
     document.getElementById("signupPage").style.display = "none";
+
     document.getElementById("homePage").style.display = "block";
 
 });
 
+
+/* SIGN UP */
 
 document
 .getElementById("signupSubmit")
@@ -592,9 +774,11 @@ document
         message.innerText =
             "Please fill in all fields.";
 
-        message.style.color = "red";
+        message.style.color =
+            "red";
 
         return;
+
     }
 
 
@@ -603,9 +787,11 @@ document
         message.innerText =
             "Password must be at least 6 characters.";
 
-        message.style.color = "red";
+        message.style.color =
+            "red";
 
         return;
+
     }
 
 
@@ -614,22 +800,46 @@ document
         message.innerText =
             "Passwords do not match.";
 
-        message.style.color = "red";
+        message.style.color =
+            "red";
 
         return;
+
     }
 
 
-    localStorage.setItem("zaveroName", name);
-    localStorage.setItem("zaveroEmail", email);
-    localStorage.setItem("zaveroPassword", password);
-    localStorage.setItem("zaveroBalance", "0");
-    localStorage.setItem("zaveroEarnings", "0");
+    localStorage.setItem(
+        "zaveroName",
+        name
+    );
+
+    localStorage.setItem(
+        "zaveroEmail",
+        email
+    );
+
+    localStorage.setItem(
+        "zaveroPassword",
+        password
+    );
+
+    localStorage.setItem(
+        "zaveroBalance",
+        "0"
+    );
+
+    localStorage.setItem(
+        "zaveroEarnings",
+        "0"
+    );
+
 
     showDashboard(name);
 
 });
 
+
+/* LOGIN */
 
 document
 .getElementById("loginSubmit")
@@ -651,14 +861,19 @@ document
         document.getElementById("loginMessage");
 
 
-    if (name === "" || password === "") {
+    if (
+        name === "" ||
+        password === ""
+    ) {
 
         message.innerText =
             "Please enter your name and password.";
 
-        message.style.color = "red";
+        message.style.color =
+            "red";
 
         return;
+
     }
 
 
@@ -674,21 +889,29 @@ document
         message.innerText =
             "Incorrect name or password.";
 
-        message.style.color = "red";
+        message.style.color =
+            "red";
 
     }
 
 });
 
 
+/* SHOW DASHBOARD */
+
 function showDashboard(name) {
 
     document.getElementById("homePage").style.display = "none";
+
     document.getElementById("loginPage").style.display = "none";
+
     document.getElementById("signupPage").style.display = "none";
+
     document.getElementById("dashboard").style.display = "block";
 
-    document.getElementById("userName").innerText = name;
+
+    document.getElementById("userName").innerText =
+        name;
 
 
     fetch(
@@ -698,53 +921,63 @@ function showDashboard(name) {
             localStorage.getItem("zaveroEmail")
         )
     )
-    .then(response => response.json())
+
+    .then(response =>
+        response.json()
+    )
+
     .then(data => {
 
         if (data.success) {
 
             document.getElementById("balance").innerText =
-                Number(data.balance).toLocaleString();
+                Number(
+                    data.balance
+                ).toLocaleString();
 
         }
 
     })
+
     .catch(error => {
 
-        console.error("Balance error:", error);
+        console.error(
+            "Balance error:",
+            error
+        );
 
     });
 
 
     document.getElementById("earnings").innerText =
-        localStorage.getItem("zaveroEarnings") || "0";
+        localStorage.getItem(
+            "zaveroEarnings"
+        ) || "0";
 
 }
 
+
+/* ALL TASKS */
 
 document
 .getElementById("tasksButton")
 .addEventListener("click", function () {
 
-    window.location.href = "tasks.html";
+    window.location.href =
+        "tasks.html";
 
 });
 
+
+/* TASK 1 */
 
 document
 .getElementById("openTask1")
 .addEventListener("click", function () {
 
-    alert("Task link will be added here.");
-
-});
-
-
-document
-.getElementById("openTask2")
-.addEventListener("click", function () {
-
-    alert("Task link will be added here.");
+    alert(
+        "Task link will be added here."
+    );
 
 });
 
@@ -753,7 +986,22 @@ document
 .getElementById("claimTask1")
 .addEventListener("click", function () {
 
-    alert("Task verification will be connected later.");
+    alert(
+        "Task verification will be connected later."
+    );
+
+});
+
+
+/* TASK 2 */
+
+document
+.getElementById("openTask2")
+.addEventListener("click", function () {
+
+    alert(
+        "Task link will be added here."
+    );
 
 });
 
@@ -762,10 +1010,14 @@ document
 .getElementById("claimTask2")
 .addEventListener("click", function () {
 
-    alert("Task verification will be connected later.");
+    alert(
+        "Task verification will be connected later."
+    );
 
 });
 
+
+/* WITHDRAW */
 
 document
 .getElementById("withdrawButton")
@@ -797,9 +1049,11 @@ document
         message.innerText =
             "Please fill in all withdrawal details.";
 
-        message.style.color = "red";
+        message.style.color =
+            "red";
 
         return;
+
     }
 
 
@@ -812,6 +1066,8 @@ document
 });
 
 
+/* PAYSTACK DEPOSIT */
+
 document
 .getElementById("depositButton")
 .addEventListener("click", async function () {
@@ -823,13 +1079,20 @@ document
         document.getElementById("depositMessage");
 
     const name =
-        localStorage.getItem("zaveroName");
+        localStorage.getItem(
+            "zaveroName"
+        );
 
     const email =
-        localStorage.getItem("zaveroEmail");
+        localStorage.getItem(
+            "zaveroEmail"
+        );
 
 
-    if (amount === "" || Number(amount) <= 0) {
+    if (
+        amount === "" ||
+        Number(amount) <= 0
+    ) {
 
         message.innerText =
             "Please enter a valid amount.";
@@ -838,10 +1101,14 @@ document
             "red";
 
         return;
+
     }
 
 
-    if (!name || !email) {
+    if (
+        !name ||
+        !email
+    ) {
 
         message.innerText =
             "Please login again.";
@@ -850,6 +1117,7 @@ document
             "red";
 
         return;
+
     }
 
 
@@ -864,8 +1132,10 @@ document
 
         const response =
             await fetch(
-                BACKEND_URL + "/initialize-payment",
+                BACKEND_URL +
+                "/initialize-payment",
                 {
+
                     method: "POST",
 
                     headers: {
@@ -874,10 +1144,16 @@ document
                     },
 
                     body: JSON.stringify({
+
                         name: name,
+
                         email: email,
-                        amount: Number(amount)
+
+                        amount:
+                            Number(amount)
+
                     })
+
                 }
             );
 
@@ -924,17 +1200,19 @@ document
 });
 
 
+/* LOGOUT */
+
 document
 .getElementById("logoutButton")
 .addEventListener("click", function () {
 
-    document.getElementById("dashboard").style.display = "none";
+    document.getElementById("dashboard").style.display =
+        "none";
 
-    document.getElementById("homePage").style.display = "block";
+    document.getElementById("homePage").style.display =
+        "block";
 
 });
 
-</script>
 
-</body>
-        </html>
+/* EARN
