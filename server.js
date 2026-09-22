@@ -6,32 +6,41 @@ const { Pool } = require("pg");
 const app = express();
 
 app.use(cors());
-
-/*
-====================================================
-IMPORTANT
-====================================================
-
-The webhook uses JSON, so express.json() is fine here.
-Flutterwave sends the webhook signature in the
-"verif-hash" header.
-*/
 app.use(express.json());
 
 const PORT = process.env.PORT || 10000;
 
 const DATABASE_URL = process.env.DATABASE_URL;
 
-const FLW_SECRET_KEY =
-    process.env.FLW_SECRET_KEY;
-
-const FLW_SECRET_HASH =
-    process.env.FLW_SECRET_HASH;
-
 const SITE_URL =
     process.env.SITE_URL ||
     "https://zavero-earning-platform-1.onrender.com";
 
+
+// ==================================================
+// MONETA ENVIRONMENT VARIABLES
+// ==================================================
+// These are stored securely in Render.
+// Payment processing is not enabled in this version
+// until Moneta confirms Zavero is approved.
+// ==================================================
+
+const MONETA_CLIENT_ID =
+    process.env.MONETA_CLIENT_ID;
+
+const MONETA_CLIENT_SECRET =
+    process.env.MONETA_CLIENT_SECRET;
+
+const MONETA_SERVICE_KEY =
+    process.env.MONETA_SERVICE_KEY;
+
+const MONETA_MAC_KEY =
+    process.env.MONETA_MAC_KEY;
+
+
+// ==================================================
+// STARTUP CHECKS
+// ==================================================
 
 if (!DATABASE_URL) {
     console.log(
@@ -39,21 +48,38 @@ if (!DATABASE_URL) {
     );
 }
 
-if (!FLW_SECRET_KEY) {
+if (!MONETA_CLIENT_ID) {
     console.log(
-        "WARNING: FLW_SECRET_KEY is not configured."
+        "WARNING: MONETA_CLIENT_ID is not configured."
     );
 }
 
-if (!FLW_SECRET_HASH) {
+if (!MONETA_CLIENT_SECRET) {
     console.log(
-        "WARNING: FLW_SECRET_HASH is not configured."
+        "WARNING: MONETA_CLIENT_SECRET is not configured."
     );
 }
 
+if (!MONETA_SERVICE_KEY) {
+    console.log(
+        "WARNING: MONETA_SERVICE_KEY is not configured."
+    );
+}
+
+if (!MONETA_MAC_KEY) {
+    console.log(
+        "WARNING: MONETA_MAC_KEY is not configured."
+    );
+}
+
+
+// ==================================================
+// DATABASE
+// ==================================================
 
 const pool = new Pool({
     connectionString: DATABASE_URL,
+
     ssl: {
         rejectUnauthorized: false
     }
@@ -98,20 +124,31 @@ const vipPlans = {
 
 
 // ==================================================
-// FIND VIP BY PAYMENT AMOUNT
+// FIND VIP LEVEL FROM PAYMENT AMOUNT
+// ==================================================
+// Highest matching plan wins.
+// Example:
+// ₦100,000 -> VIP 6
+// ₦50,000  -> VIP 5
+// ₦1,500   -> VIP 1
 // ==================================================
 
 function getVipLevelFromAmount(amount) {
 
     const paidAmount = Number(amount);
 
-    for (const level of Object.keys(vipPlans)) {
+    const levels =
+        Object.keys(vipPlans)
+            .map(Number)
+            .sort((a, b) => b - a);
+
+    for (const level of levels) {
 
         if (
             paidAmount >=
             vipPlans[level].price
         ) {
-            return Number(level);
+            return level;
         }
     }
 
@@ -120,7 +157,7 @@ function getVipLevelFromAmount(amount) {
 
 
 // ==================================================
-// PASSWORD FUNCTIONS
+// PASSWORD HASHING
 // ==================================================
 
 function hashPassword(password) {
@@ -149,6 +186,10 @@ function hashPassword(password) {
     });
 }
 
+
+// ==================================================
+// PASSWORD VERIFICATION
+// ==================================================
 
 function verifyPassword(
     password,
@@ -214,15 +255,17 @@ function verifyPassword(
 
 
 // ==================================================
-// DATABASE SETUP
+// DATABASE TABLES
 // ==================================================
 
 async function createTables() {
 
     if (!DATABASE_URL) {
+
         console.log(
             "Database not configured."
         );
+
         return;
     }
 
@@ -230,13 +273,24 @@ async function createTables() {
     await pool.query(`
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
+
             name VARCHAR(100) NOT NULL,
-            email VARCHAR(255) UNIQUE NOT NULL,
+
+            email VARCHAR(255)
+                UNIQUE NOT NULL,
+
             password_hash TEXT NOT NULL,
-            balance NUMERIC(14,2) DEFAULT 0,
-            vip_level INTEGER DEFAULT 0,
+
+            balance NUMERIC(14,2)
+                DEFAULT 0,
+
+            vip_level INTEGER
+                DEFAULT 0,
+
             last_vip_claim TIMESTAMP NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+
+            created_at TIMESTAMP
+                DEFAULT CURRENT_TIMESTAMP
         );
     `);
 
@@ -244,11 +298,24 @@ async function createTables() {
     await pool.query(`
         CREATE TABLE IF NOT EXISTS payments (
             id SERIAL PRIMARY KEY,
-            user_id INTEGER REFERENCES users(id),
-            reference VARCHAR(255) UNIQUE NOT NULL,
-            amount NUMERIC(14,2) NOT NULL,
-            status VARCHAR(50) DEFAULT 'pending',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+
+            user_id INTEGER
+                REFERENCES users(id),
+
+            reference VARCHAR(255)
+                UNIQUE NOT NULL,
+
+            amount NUMERIC(14,2)
+                NOT NULL,
+
+            status VARCHAR(50)
+                DEFAULT 'pending',
+
+            provider VARCHAR(50)
+                DEFAULT 'moneta',
+
+            created_at TIMESTAMP
+                DEFAULT CURRENT_TIMESTAMP
         );
     `);
 
@@ -256,27 +323,22 @@ async function createTables() {
     await pool.query(`
         CREATE TABLE IF NOT EXISTS transactions (
             id SERIAL PRIMARY KEY,
-            user_id INTEGER REFERENCES users(id),
-            type VARCHAR(50) NOT NULL,
-            amount NUMERIC(14,2) NOT NULL,
+
+            user_id INTEGER
+                REFERENCES users(id),
+
+            type VARCHAR(50)
+                NOT NULL,
+
+            amount NUMERIC(14,2)
+                NOT NULL,
+
             description TEXT,
+
             reference VARCHAR(255),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-    `);
 
-
-    /*
-    This table prevents the same Flutterwave
-    transaction from activating VIP twice.
-    */
-
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS flutterwave_events (
-            id SERIAL PRIMARY KEY,
-            transaction_id VARCHAR(255) UNIQUE NOT NULL,
-            event_type VARCHAR(100),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP
+                DEFAULT CURRENT_TIMESTAMP
         );
     `);
 
@@ -294,9 +356,14 @@ async function createTables() {
 app.get("/", (req, res) => {
 
     res.json({
+
         success: true,
+
         message:
-            "Zavero Flutterwave backend is working"
+            "Zavero backend is working",
+
+        site:
+            SITE_URL
     });
 
 });
@@ -316,11 +383,15 @@ app.get("/test", async (req, res) => {
             );
 
         res.json({
+
             success: true,
+
             message:
                 "Zavero connection test is working",
+
             databaseTime:
                 result.rows[0].database_time
+
         });
 
     } catch (error) {
@@ -331,10 +402,14 @@ app.get("/test", async (req, res) => {
         );
 
         res.status(500).json({
+
             success: false,
+
             message:
                 "Database connection failed"
+
         });
+
     }
 
 });
@@ -356,7 +431,8 @@ app.post("/signup", async (req, res) => {
         const email =
             String(
                 req.body.email || ""
-            ).trim()
+            )
+            .trim()
             .toLowerCase();
 
         const password =
@@ -372,20 +448,28 @@ app.post("/signup", async (req, res) => {
         ) {
 
             return res.status(400).json({
+
                 success: false,
+
                 message:
                     "Please fill all fields."
+
             });
+
         }
 
 
         if (password.length < 6) {
 
             return res.status(400).json({
+
                 success: false,
+
                 message:
                     "Password must be at least 6 characters."
+
             });
+
         }
 
 
@@ -410,10 +494,14 @@ app.post("/signup", async (req, res) => {
         ) {
 
             return res.status(409).json({
+
                 success: false,
+
                 message:
                     "Name or email already exists."
+
             });
+
         }
 
 
@@ -450,11 +538,15 @@ app.post("/signup", async (req, res) => {
 
 
         res.json({
+
             success: true,
+
             message:
                 "Account created successfully.",
+
             user:
                 result.rows[0]
+
         });
 
 
@@ -466,9 +558,12 @@ app.post("/signup", async (req, res) => {
         );
 
         res.status(500).json({
+
             success: false,
+
             message:
                 "Unable to create account."
+
         });
 
     }
@@ -510,10 +605,14 @@ app.post("/login", async (req, res) => {
         ) {
 
             return res.status(400).json({
+
                 success: false,
+
                 message:
                     "Enter your name/email and password."
+
             });
+
         }
 
 
@@ -546,10 +645,14 @@ app.post("/login", async (req, res) => {
         ) {
 
             return res.status(401).json({
+
                 success: false,
+
                 message:
                     "Account not found."
+
             });
+
         }
 
 
@@ -567,29 +670,46 @@ app.post("/login", async (req, res) => {
         if (!correctPassword) {
 
             return res.status(401).json({
+
                 success: false,
+
                 message:
                     "Incorrect password."
+
             });
+
         }
 
 
         res.json({
+
             success: true,
+
             message:
                 "Login successful.",
 
             user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
+
+                id:
+                    user.id,
+
+                name:
+                    user.name,
+
+                email:
+                    user.email,
+
                 balance:
                     Number(user.balance),
+
                 vip_level:
                     Number(user.vip_level),
+
                 last_vip_claim:
                     user.last_vip_claim
+
             }
+
         });
 
 
@@ -601,9 +721,12 @@ app.post("/login", async (req, res) => {
         );
 
         res.status(500).json({
+
             success: false,
+
             message:
                 "Unable to login."
+
         });
 
     }
@@ -630,10 +753,14 @@ app.get("/balance", async (req, res) => {
         if (!email) {
 
             return res.status(400).json({
+
                 success: false,
+
                 message:
                     "Email is required."
+
             });
+
         }
 
 
@@ -660,10 +787,14 @@ app.get("/balance", async (req, res) => {
         ) {
 
             return res.status(404).json({
+
                 success: false,
+
                 message:
                     "User not found."
+
             });
+
         }
 
 
@@ -672,12 +803,19 @@ app.get("/balance", async (req, res) => {
 
 
         res.json({
+
             success: true,
 
             user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
+
+                id:
+                    user.id,
+
+                name:
+                    user.name,
+
+                email:
+                    user.email,
 
                 balance:
                     Number(user.balance),
@@ -687,7 +825,9 @@ app.get("/balance", async (req, res) => {
 
                 last_vip_claim:
                     user.last_vip_claim
+
             }
+
         });
 
 
@@ -699,9 +839,12 @@ app.get("/balance", async (req, res) => {
         );
 
         res.status(500).json({
+
             success: false,
+
             message:
                 "Unable to load balance."
+
         });
 
     }
@@ -710,632 +853,24 @@ app.get("/balance", async (req, res) => {
 
 
 // ==================================================
-// FLUTTERWAVE WEBHOOK
+// VIP INFORMATION
 // ==================================================
 
-app.post(
-    "/flutterwave-webhook",
-    async (req, res) => {
+app.get("/vip-plans", (req, res) => {
 
-        /*
-        Check Flutterwave secret hash first.
-        */
+    res.json({
 
-        const incomingHash =
-            req.headers["verif-hash"];
+        success: true,
 
+        plans: vipPlans
 
-        if (
-            !FLW_SECRET_HASH ||
-            !incomingHash ||
-            incomingHash !== FLW_SECRET_HASH
-        ) {
+    });
 
-            console.log(
-                "Rejected Flutterwave webhook."
-            );
-
-            return res.status(401).json({
-                success: false,
-                message:
-                    "Invalid webhook signature."
-            });
-        }
-
-
-        /*
-        Respond quickly.
-        Flutterwave expects a successful
-        HTTP response from the webhook.
-        */
-
-        try {
-
-            const payload =
-                req.body || {};
-
-
-            const event =
-                payload.event || "";
-
-
-            const data =
-                payload.data || {};
-
-
-            console.log(
-                "FLUTTERWAVE WEBHOOK:",
-                JSON.stringify(payload)
-            );
-
-
-            /*
-            We only process completed charges.
-            */
-
-            if (
-                event !==
-                "charge.completed"
-            ) {
-
-                return res.status(200).json({
-                    success: true,
-                    message:
-                        "Event received."
-                });
-            }
-
-
-            const transactionId =
-                String(
-                    data.id || ""
-                );
-
-
-            if (!transactionId) {
-
-                return res.status(200).json({
-                    success: true,
-                    message:
-                        "No transaction ID."
-                });
-            }
-
-
-            /*
-            Prevent duplicate processing.
-            */
-
-            const existingEvent =
-                await pool.query(
-                    `
-                    SELECT id
-                    FROM flutterwave_events
-                    WHERE transaction_id = $1
-                    LIMIT 1
-                    `,
-                    [transactionId]
-                );
-
-
-            if (
-                existingEvent.rows.length > 0
-            ) {
-
-                return res.status(200).json({
-                    success: true,
-                    message:
-                        "Transaction already processed."
-                });
-            }
-
-
-            /*
-            Verify the transaction directly
-            with Flutterwave.
-            */
-
-            if (!FLW_SECRET_KEY) {
-
-                console.error(
-                    "FLW_SECRET_KEY is missing."
-                );
-
-                return res.status(500).json({
-                    success: false,
-                    message:
-                        "Flutterwave secret key missing."
-                });
-            }
-
-
-            const verifyResponse =
-                await fetch(
-                    `https://api.flutterwave.com/v3/transactions/${encodeURIComponent(transactionId)}/verify`,
-                    {
-                        method: "GET",
-
-                        headers: {
-                            Authorization:
-                                `Bearer ${FLW_SECRET_KEY}`,
-                            "Content-Type":
-                                "application/json"
-                        }
-                    }
-                );
-
-
-            const verifyData =
-                await verifyResponse.json();
-
-
-            console.log(
-                "FLUTTERWAVE VERIFICATION:",
-                JSON.stringify(verifyData)
-            );
-
-
-            if (
-                !verifyResponse.ok ||
-                !verifyData ||
-                !verifyData.data
-            ) {
-
-                return res.status(200).json({
-                    success: true,
-                    message:
-                        "Transaction could not be verified."
-                });
-            }
-
-
-            const payment =
-                verifyData.data;
-
-
-            /*
-            Payment must be successful.
-            */
-
-            if (
-                payment.status !==
-                "successful"
-            ) {
-
-                return res.status(200).json({
-                    success: true,
-                    message:
-                        "Payment is not successful."
-                });
-            }
-
-
-            /*
-            Must be Nigerian Naira.
-            */
-
-            if (
-                String(
-                    payment.currency
-                ).toUpperCase() !== "NGN"
-            ) {
-
-                return res.status(200).json({
-                    success: true,
-                    message:
-                        "Wrong payment currency."
-                });
-            }
-
-
-            const amount =
-                Number(payment.amount);
-
-
-            /*
-            Determine VIP from the amount.
-            */
-
-            const vipLevel =
-                getVipLevelFromAmount(
-                    amount
-                );
-
-
-            if (!vipLevel) {
-
-                return res.status(200).json({
-                    success: true,
-                    message:
-                        "Payment amount does not match a VIP plan."
-                });
-            }
-
-
-            const plan =
-                vipPlans[vipLevel];
-
-
-            /*
-            Customer email is used to locate
-            the Zavero account.
-            */
-
-            const customerEmail =
-                String(
-                    payment.customer?.email ||
-                    data.customer?.email ||
-                    ""
-                )
-                .trim()
-                .toLowerCase();
-
-
-            if (!customerEmail) {
-
-                console.log(
-                    "Flutterwave payment has no customer email."
-                );
-
-                return res.status(200).json({
-                    success: true,
-                    message:
-                        "Customer email missing."
-                });
-            }
-
-
-            /*
-            Find the Zavero account.
-            */
-
-            const userResult =
-                await pool.query(
-                    `
-                    SELECT
-                        id,
-                        name,
-                        email,
-                        balance,
-                        vip_level
-                    FROM users
-                    WHERE LOWER(email) = $1
-                    LIMIT 1
-                    `,
-                    [customerEmail]
-                );
-
-
-            if (
-                userResult.rows.length === 0
-            ) {
-
-                console.log(
-                    "No Zavero account for:",
-                    customerEmail
-                );
-
-                return res.status(200).json({
-                    success: true,
-                    message:
-                        "No matching Zavero account."
-                });
-            }
-
-
-            const user =
-                userResult.rows[0];
-
-
-            /*
-            Use the Flutterwave transaction
-            ID as our unique reference.
-            */
-
-            const reference =
-                `FLW_${transactionId}`;
-
-
-            /*
-            Begin database transaction.
-            */
-
-            const client =
-                await pool.connect();
-
-
-            try {
-
-                await client.query(
-                    "BEGIN"
-                );
-
-
-                /*
-                Record webhook event first.
-                */
-
-                await client.query(
-                    `
-                    INSERT INTO flutterwave_events
-                    (
-                        transaction_id,
-                        event_type
-                    )
-                    VALUES
-                    ($1, $2)
-                    `,
-                    [
-                        transactionId,
-                        event
-                    ]
-                );
-
-
-                /*
-                Record payment.
-                */
-
-                await client.query(
-                    `
-                    INSERT INTO payments
-                    (
-                        user_id,
-                        reference,
-                        amount,
-                        status
-                    )
-                    VALUES
-                    ($1, $2, $3, 'success')
-                    ON CONFLICT (reference)
-                    DO NOTHING
-                    `,
-                    [
-                        user.id,
-                        reference,
-                        amount
-                    ]
-                );
-
-
-                /*
-                If the user already has this
-                VIP level or higher, don't downgrade.
-                */
-
-                const currentVip =
-                    Number(
-                        user.vip_level || 0
-                    );
-
-
-                if (
-                    currentVip < vipLevel
-                ) {
-
-                    await client.query(
-                        `
-                        UPDATE users
-                        SET
-                            vip_level = $1,
-                            last_vip_claim = NULL
-                        WHERE id = $2
-                        `,
-                        [
-                            vipLevel,
-                            user.id
-                        ]
-                    );
-
-
-                    await client.query(
-                        `
-                        INSERT INTO transactions
-                        (
-                            user_id,
-                            type,
-                            amount,
-                            description,
-                            reference
-                        )
-                        VALUES
-                        (
-                            $1,
-                            'vip_purchase',
-                            $2,
-                            $3,
-                            $4
-                        )
-                        `,
-                        [
-                            user.id,
-                            amount,
-                            `Flutterwave VIP ${vipLevel} activation`,
-                            reference
-                        ]
-                    );
-
-                } else {
-
-                    /*
-                    The payment is still recorded,
-                    but the account isn't downgraded.
-                    */
-
-                    await client.query(
-                        `
-                        INSERT INTO transactions
-                        (
-                            user_id,
-                            type,
-                            amount,
-                            description,
-                            reference
-                        )
-                        VALUES
-                        (
-                            $1,
-                            'vip_payment',
-                            $2,
-                            $3,
-                            $4
-                        )
-                        `,
-                        [
-                            user.id,
-                            amount,
-                            `Flutterwave payment for VIP ${vipLevel}`,
-                            reference
-                        ]
-                    );
-                }
-
-
-                await client.query(
-                    "COMMIT"
-                );
-
-
-                console.log(
-                    `VIP ${vipLevel} activated for ${customerEmail}`
-                );
-
-
-                return res.status(200).json({
-                    success: true,
-                    message:
-                        `VIP ${vipLevel} activated.`
-                });
-
-
-            } catch (error) {
-
-                await client.query(
-                    "ROLLBACK"
-                );
-
-                throw error;
-
-            } finally {
-
-                client.release();
-
-            }
-
-
-        } catch (error) {
-
-            console.error(
-                "FLUTTERWAVE WEBHOOK ERROR:",
-                error
-            );
-
-            return res.status(500).json({
-                success: false,
-                message:
-                    "Webhook processing failed."
-            });
-        }
-
-    }
-);
+});
 
 
 // ==================================================
-// FLUTTERWAVE PAYMENT STATUS
-// ==================================================
-
-app.get(
-    "/flutterwave-status",
-    async (req, res) => {
-
-        try {
-
-            const email =
-                String(
-                    req.query.email || ""
-                )
-                .trim()
-                .toLowerCase();
-
-
-            if (!email) {
-
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        "Email is required."
-                });
-            }
-
-
-            const result =
-                await pool.query(
-                    `
-                    SELECT
-                        name,
-                        email,
-                        balance,
-                        vip_level,
-                        last_vip_claim
-                    FROM users
-                    WHERE LOWER(email) = $1
-                    LIMIT 1
-                    `,
-                    [email]
-                );
-
-
-            if (
-                result.rows.length === 0
-            ) {
-
-                return res.status(404).json({
-                    success: false,
-                    message:
-                        "User not found."
-                });
-            }
-
-
-            const user =
-                result.rows[0];
-
-
-            res.json({
-                success: true,
-
-                balance:
-                    Number(user.balance),
-
-                vip_level:
-                    Number(user.vip_level),
-
-                last_vip_claim:
-                    user.last_vip_claim
-            });
-
-
-        } catch (error) {
-
-            console.error(
-                "FLUTTERWAVE STATUS ERROR:",
-                error
-            );
-
-            res.status(500).json({
-                success: false,
-                message:
-                    "Unable to check payment status."
-            });
-        }
-
-    }
-);
-
-
-// ==================================================
-// CLAIM VIP REWARD
+// CLAIM VIP DAILY REWARD
 // ==================================================
 
 app.post(
@@ -1355,10 +890,14 @@ app.post(
             if (!email) {
 
                 return res.status(400).json({
+
                     success: false,
+
                     message:
                         "Email is required."
+
                 });
+
             }
 
 
@@ -1383,10 +922,14 @@ app.post(
             ) {
 
                 return res.status(404).json({
+
                     success: false,
+
                     message:
                         "User not found."
+
                 });
+
             }
 
 
@@ -1395,16 +938,22 @@ app.post(
 
 
             const level =
-                Number(user.vip_level);
+                Number(
+                    user.vip_level
+                );
 
 
             if (!vipPlans[level]) {
 
                 return res.status(400).json({
+
                     success: false,
+
                     message:
                         "You need an active VIP plan before claiming."
+
                 });
+
             }
 
 
@@ -1434,11 +983,16 @@ app.post(
 
 
                     return res.status(400).json({
+
                         success: false,
+
                         message:
                             `Your next reward is available in about ${remaining} hour(s).`
+
                     });
+
                 }
+
             }
 
 
@@ -1465,9 +1019,12 @@ app.post(
                         SET
                             balance =
                                 balance + $1,
+
                             last_vip_claim =
                                 CURRENT_TIMESTAMP
+
                         WHERE id = $2
+
                         RETURNING
                             balance,
                             last_vip_claim
@@ -1510,6 +1067,7 @@ app.post(
 
 
                 res.json({
+
                     success: true,
 
                     message:
@@ -1527,6 +1085,7 @@ app.post(
                     last_vip_claim:
                         updated.rows[0]
                             .last_vip_claim
+
                 });
 
 
@@ -1553,10 +1112,14 @@ app.post(
             );
 
             res.status(500).json({
+
                 success: false,
+
                 message:
                     "Unable to claim VIP reward."
+
             });
+
         }
 
     }
@@ -1581,6 +1144,20 @@ app.get(
                 .toLowerCase();
 
 
+            if (!email) {
+
+                return res.status(400).json({
+
+                    success: false,
+
+                    message:
+                        "Email is required."
+
+                });
+
+            }
+
+
             const userResult =
                 await pool.query(
                     `
@@ -1598,10 +1175,14 @@ app.get(
             ) {
 
                 return res.status(404).json({
+
                     success: false,
+
                     message:
                         "User not found."
+
                 });
+
             }
 
 
@@ -1627,9 +1208,12 @@ app.get(
 
 
             res.json({
+
                 success: true,
+
                 transactions:
                     result.rows
+
             });
 
 
@@ -1641,10 +1225,14 @@ app.get(
             );
 
             res.status(500).json({
+
                 success: false,
+
                 message:
                     "Unable to load transactions."
+
             });
+
         }
 
     }
@@ -1652,7 +1240,38 @@ app.get(
 
 
 // ==================================================
-// START SERVER
+// PAYMENT STATUS PLACEHOLDER
+// ==================================================
+// This intentionally does not process payments yet.
+// We will replace it with the approved Moneta flow
+// after Moneta confirms Zavero.
+// ==================================================
+
+app.get(
+    "/payment-status",
+    (req, res) => {
+
+        res.json({
+
+            success: true,
+
+            provider:
+                "moneta",
+
+            status:
+                "pending_integration",
+
+            message:
+                "Payment integration is waiting for merchant approval."
+
+        });
+
+    }
+);
+
+
+// ==================================================
+// SERVER START
 // ==================================================
 
 async function startServer() {
@@ -1682,7 +1301,9 @@ async function startServer() {
         );
 
         process.exit(1);
+
     }
+
 }
 
 
