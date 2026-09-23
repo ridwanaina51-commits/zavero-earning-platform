@@ -14,15 +14,10 @@ const DATABASE_URL = process.env.DATABASE_URL;
 
 const SITE_URL =
     process.env.SITE_URL ||
-    "https://zavero-earning-platform-1.onrender.com";
-
+    "https://zavero-earning-platform.onrender.com";
 
 // ==================================================
 // MONETA ENVIRONMENT VARIABLES
-// ==================================================
-// These are stored securely in Render.
-// Payment processing is not enabled in this version
-// until Moneta confirms Zavero is approved.
 // ==================================================
 
 const MONETA_CLIENT_ID =
@@ -37,41 +32,29 @@ const MONETA_SERVICE_KEY =
 const MONETA_MAC_KEY =
     process.env.MONETA_MAC_KEY;
 
-
 // ==================================================
 // STARTUP CHECKS
 // ==================================================
 
 if (!DATABASE_URL) {
-    console.log(
-        "WARNING: DATABASE_URL is not configured."
-    );
+    console.log("WARNING: DATABASE_URL is not configured.");
 }
 
 if (!MONETA_CLIENT_ID) {
-    console.log(
-        "WARNING: MONETA_CLIENT_ID is not configured."
-    );
+    console.log("WARNING: MONETA_CLIENT_ID is not configured.");
 }
 
 if (!MONETA_CLIENT_SECRET) {
-    console.log(
-        "WARNING: MONETA_CLIENT_SECRET is not configured."
-    );
+    console.log("WARNING: MONETA_CLIENT_SECRET is not configured.");
 }
 
 if (!MONETA_SERVICE_KEY) {
-    console.log(
-        "WARNING: MONETA_SERVICE_KEY is not configured."
-    );
+    console.log("WARNING: MONETA_SERVICE_KEY is not configured.");
 }
 
 if (!MONETA_MAC_KEY) {
-    console.log(
-        "WARNING: MONETA_MAC_KEY is not configured."
-    );
+    console.log("WARNING: MONETA_MAC_KEY is not configured.");
 }
-
 
 // ==================================================
 // DATABASE
@@ -79,12 +62,10 @@ if (!MONETA_MAC_KEY) {
 
 const pool = new Pool({
     connectionString: DATABASE_URL,
-
     ssl: {
         rejectUnauthorized: false
     }
 });
-
 
 // ==================================================
 // VIP PLANS
@@ -122,48 +103,12 @@ const vipPlans = {
     }
 };
 
-
-// ==================================================
-// FIND VIP LEVEL FROM PAYMENT AMOUNT
-// ==================================================
-// Highest matching plan wins.
-// Example:
-// ₦100,000 -> VIP 6
-// ₦50,000  -> VIP 5
-// ₦1,500   -> VIP 1
-// ==================================================
-
-function getVipLevelFromAmount(amount) {
-
-    const paidAmount = Number(amount);
-
-    const levels =
-        Object.keys(vipPlans)
-            .map(Number)
-            .sort((a, b) => b - a);
-
-    for (const level of levels) {
-
-        if (
-            paidAmount >=
-            vipPlans[level].price
-        ) {
-            return level;
-        }
-    }
-
-    return null;
-}
-
-
 // ==================================================
 // PASSWORD HASHING
 // ==================================================
 
 function hashPassword(password) {
-
     return new Promise((resolve, reject) => {
-
         const salt =
             crypto.randomBytes(16).toString("hex");
 
@@ -172,7 +117,6 @@ function hashPassword(password) {
             salt,
             64,
             (err, derivedKey) => {
-
                 if (err) {
                     reject(err);
                     return;
@@ -186,19 +130,17 @@ function hashPassword(password) {
     });
 }
 
-
 // ==================================================
 // PASSWORD VERIFICATION
 // ==================================================
 
-function verifyPassword(
-    password,
-    storedPassword
-) {
-
+function verifyPassword(password, storedPassword) {
     return new Promise((resolve, reject) => {
-
         try {
+            if (!storedPassword) {
+                resolve(false);
+                return;
+            }
 
             const parts =
                 storedPassword.split(":");
@@ -211,17 +153,13 @@ function verifyPassword(
             const salt = parts[0];
 
             const storedHash =
-                Buffer.from(
-                    parts[1],
-                    "hex"
-                );
+                Buffer.from(parts[1], "hex");
 
             crypto.scrypt(
                 password,
                 salt,
                 64,
                 (err, derivedKey) => {
-
                     if (err) {
                         reject(err);
                         return;
@@ -245,136 +183,298 @@ function verifyPassword(
             );
 
         } catch (error) {
-
             resolve(false);
-
         }
-
     });
 }
 
+// ==================================================
+// VIP LEVEL FROM AMOUNT
+// ==================================================
+
+function getVipLevelFromAmount(amount) {
+    const paidAmount = Number(amount);
+
+    const levels =
+        Object.keys(vipPlans)
+            .map(Number)
+            .sort((a, b) => b - a);
+
+    for (const level of levels) {
+        if (
+            paidAmount >=
+            vipPlans[level].price
+        ) {
+            return level;
+        }
+    }
+
+    return null;
+}
 
 // ==================================================
-// DATABASE TABLES
+// DATABASE SETUP + SAFE MIGRATION
 // ==================================================
 
 async function createTables() {
 
     if (!DATABASE_URL) {
-
         console.log(
             "Database not configured."
         );
-
         return;
     }
 
+    // --------------------------------------------------
+    // USERS TABLE
+    // --------------------------------------------------
 
     await pool.query(`
         CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-
-            name VARCHAR(100) NOT NULL,
-
-            email VARCHAR(255)
-                UNIQUE NOT NULL,
-
-            password_hash TEXT NOT NULL,
-
-            balance NUMERIC(14,2)
-                DEFAULT 0,
-
-            vip_level INTEGER
-                DEFAULT 0,
-
+            id BIGSERIAL,
+            name VARCHAR(100),
+            email VARCHAR(255),
+            password_hash TEXT,
+            balance NUMERIC(14,2) DEFAULT 0,
+            vip_level INTEGER DEFAULT 0,
             last_vip_claim TIMESTAMP NULL,
-
-            created_at TIMESTAMP
-                DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     `);
 
+    // --------------------------------------------------
+    // IMPORTANT:
+    // The old users table may already exist.
+    // Add missing columns without deleting data.
+    // --------------------------------------------------
+
+    await pool.query(`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS id BIGSERIAL;
+    `);
+
+    await pool.query(`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS name VARCHAR(100);
+    `);
+
+    await pool.query(`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS email VARCHAR(255);
+    `);
+
+    await pool.query(`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS password_hash TEXT;
+    `);
+
+    await pool.query(`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS balance NUMERIC(14,2)
+        DEFAULT 0;
+    `);
+
+    await pool.query(`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS vip_level INTEGER
+        DEFAULT 0;
+    `);
+
+    await pool.query(`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS last_vip_claim TIMESTAMP NULL;
+    `);
+
+    await pool.query(`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS created_at TIMESTAMP
+        DEFAULT CURRENT_TIMESTAMP;
+    `);
+
+    // --------------------------------------------------
+    // MAKE SURE ID VALUES EXIST
+    // --------------------------------------------------
+
+    await pool.query(`
+        UPDATE users
+        SET id = nextval(
+            pg_get_serial_sequence('users', 'id')
+        )
+        WHERE id IS NULL;
+    `);
+
+    // --------------------------------------------------
+    // DEFAULT VALUES FOR OLD USERS
+    // --------------------------------------------------
+
+    await pool.query(`
+        UPDATE users
+        SET balance = 0
+        WHERE balance IS NULL;
+    `);
+
+    await pool.query(`
+        UPDATE users
+        SET vip_level = 0
+        WHERE vip_level IS NULL;
+    `);
+
+    // --------------------------------------------------
+    // UNIQUE INDEX FOR USER ID
+    // --------------------------------------------------
+
+    await pool.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS
+        users_id_unique_idx
+        ON users(id);
+    `);
+
+    // --------------------------------------------------
+    // UNIQUE EMAIL INDEX
+    // Only create it if existing emails are not duplicated.
+    // --------------------------------------------------
+
+    try {
+        await pool.query(`
+            CREATE UNIQUE INDEX IF NOT EXISTS
+            users_email_unique_idx
+            ON users(LOWER(email))
+            WHERE email IS NOT NULL;
+        `);
+    } catch (error) {
+        console.log(
+            "Email unique index was not created. Existing duplicate emails may exist."
+        );
+    }
+
+    // --------------------------------------------------
+    // PAYMENTS TABLE
+    // --------------------------------------------------
 
     await pool.query(`
         CREATE TABLE IF NOT EXISTS payments (
-            id SERIAL PRIMARY KEY,
-
-            user_id INTEGER
-                REFERENCES users(id),
-
-            reference VARCHAR(255)
-                UNIQUE NOT NULL,
-
-            amount NUMERIC(14,2)
-                NOT NULL,
-
-            status VARCHAR(50)
-                DEFAULT 'pending',
-
-            provider VARCHAR(50)
-                DEFAULT 'moneta',
-
-            created_at TIMESTAMP
-                DEFAULT CURRENT_TIMESTAMP
+            id BIGSERIAL,
+            user_id BIGINT,
+            reference VARCHAR(255),
+            amount NUMERIC(14,2),
+            status VARCHAR(50) DEFAULT 'pending',
+            provider VARCHAR(50) DEFAULT 'moneta',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     `);
 
+    await pool.query(`
+        ALTER TABLE payments
+        ADD COLUMN IF NOT EXISTS id BIGSERIAL;
+    `);
+
+    await pool.query(`
+        ALTER TABLE payments
+        ADD COLUMN IF NOT EXISTS user_id BIGINT;
+    `);
+
+    await pool.query(`
+        ALTER TABLE payments
+        ADD COLUMN IF NOT EXISTS reference VARCHAR(255);
+    `);
+
+    await pool.query(`
+        ALTER TABLE payments
+        ADD COLUMN IF NOT EXISTS amount NUMERIC(14,2);
+    `);
+
+    await pool.query(`
+        ALTER TABLE payments
+        ADD COLUMN IF NOT EXISTS status VARCHAR(50)
+        DEFAULT 'pending';
+    `);
+
+    await pool.query(`
+        ALTER TABLE payments
+        ADD COLUMN IF NOT EXISTS provider VARCHAR(50)
+        DEFAULT 'moneta';
+    `);
+
+    await pool.query(`
+        ALTER TABLE payments
+        ADD COLUMN IF NOT EXISTS created_at TIMESTAMP
+        DEFAULT CURRENT_TIMESTAMP;
+    `);
+
+    // --------------------------------------------------
+    // TRANSACTIONS TABLE
+    // --------------------------------------------------
 
     await pool.query(`
         CREATE TABLE IF NOT EXISTS transactions (
-            id SERIAL PRIMARY KEY,
-
-            user_id INTEGER
-                REFERENCES users(id),
-
-            type VARCHAR(50)
-                NOT NULL,
-
-            amount NUMERIC(14,2)
-                NOT NULL,
-
+            id BIGSERIAL,
+            user_id BIGINT,
+            type VARCHAR(50),
+            amount NUMERIC(14,2),
             description TEXT,
-
             reference VARCHAR(255),
-
-            created_at TIMESTAMP
-                DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     `);
 
+    await pool.query(`
+        ALTER TABLE transactions
+        ADD COLUMN IF NOT EXISTS id BIGSERIAL;
+    `);
+
+    await pool.query(`
+        ALTER TABLE transactions
+        ADD COLUMN IF NOT EXISTS user_id BIGINT;
+    `);
+
+    await pool.query(`
+        ALTER TABLE transactions
+        ADD COLUMN IF NOT EXISTS type VARCHAR(50);
+    `);
+
+    await pool.query(`
+        ALTER TABLE transactions
+        ADD COLUMN IF NOT EXISTS amount NUMERIC(14,2);
+    `);
+
+    await pool.query(`
+        ALTER TABLE transactions
+        ADD COLUMN IF NOT EXISTS description TEXT;
+    `);
+
+    await pool.query(`
+        ALTER TABLE transactions
+        ADD COLUMN IF NOT EXISTS reference VARCHAR(255);
+    `);
+
+    await pool.query(`
+        ALTER TABLE transactions
+        ADD COLUMN IF NOT EXISTS created_at TIMESTAMP
+        DEFAULT CURRENT_TIMESTAMP;
+    `);
 
     console.log(
-        "Database tables are ready."
+        "Database tables and migrations are ready."
     );
 }
-
 
 // ==================================================
 // HOME
 // ==================================================
 
 app.get("/", (req, res) => {
-
     res.json({
-
         success: true,
-
-        message:
-            "Zavero backend is working",
-
-        site:
-            SITE_URL
+        message: "Zavero backend is working",
+        site: SITE_URL
     });
-
 });
-
 
 // ==================================================
 // TEST
 // ==================================================
 
 app.get("/test", async (req, res) => {
-
     try {
 
         const result =
@@ -383,15 +483,11 @@ app.get("/test", async (req, res) => {
             );
 
         res.json({
-
             success: true,
-
             message:
                 "Zavero connection test is working",
-
             databaseTime:
                 result.rows[0].database_time
-
         });
 
     } catch (error) {
@@ -402,18 +498,12 @@ app.get("/test", async (req, res) => {
         );
 
         res.status(500).json({
-
             success: false,
-
             message:
                 "Database connection failed"
-
         });
-
     }
-
 });
-
 
 // ==================================================
 // SIGN UP
@@ -440,74 +530,72 @@ app.post("/signup", async (req, res) => {
                 req.body.password || ""
             );
 
-
         if (
             !name ||
             !email ||
             !password
         ) {
-
             return res.status(400).json({
-
                 success: false,
-
                 message:
                     "Please fill all fields."
-
             });
-
         }
-
 
         if (password.length < 6) {
-
             return res.status(400).json({
-
                 success: false,
-
                 message:
                     "Password must be at least 6 characters."
-
             });
-
         }
 
-
-        const existing =
+        // Check existing email
+        const existingEmail =
             await pool.query(
                 `
                 SELECT id
                 FROM users
                 WHERE LOWER(email) = $1
-                   OR LOWER(name) = $2
                 LIMIT 1
                 `,
-                [
-                    email,
-                    name.toLowerCase()
-                ]
+                [email]
             );
 
-
         if (
-            existing.rows.length > 0
+            existingEmail.rows.length > 0
         ) {
-
             return res.status(409).json({
-
                 success: false,
-
                 message:
-                    "Name or email already exists."
-
+                    "Email already exists."
             });
-
         }
 
+        // Check existing name
+        const existingName =
+            await pool.query(
+                `
+                SELECT id
+                FROM users
+                WHERE LOWER(name) = $1
+                LIMIT 1
+                `,
+                [name.toLowerCase()]
+            );
+
+        if (
+            existingName.rows.length > 0
+        ) {
+            return res.status(409).json({
+                success: false,
+                message:
+                    "Name already exists."
+            });
+        }
 
         const passwordHash =
             await hashPassword(password);
-
 
         const result =
             await pool.query(
@@ -518,16 +606,25 @@ app.post("/signup", async (req, res) => {
                     email,
                     password_hash,
                     balance,
-                    vip_level
+                    vip_level,
+                    created_at
                 )
                 VALUES
-                ($1, $2, $3, 0, 0)
+                (
+                    $1,
+                    $2,
+                    $3,
+                    0,
+                    0,
+                    CURRENT_TIMESTAMP
+                )
                 RETURNING
                     id,
                     name,
                     email,
                     balance,
-                    vip_level
+                    vip_level,
+                    created_at
                 `,
                 [
                     name,
@@ -536,19 +633,25 @@ app.post("/signup", async (req, res) => {
                 ]
             );
 
+        const user =
+            result.rows[0];
 
         res.json({
-
             success: true,
-
             message:
                 "Account created successfully.",
-
-            user:
-                result.rows[0]
-
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                balance:
+                    Number(user.balance || 0),
+                vip_level:
+                    Number(user.vip_level || 0),
+                created_at:
+                    user.created_at
+            }
         });
-
 
     } catch (error) {
 
@@ -558,18 +661,12 @@ app.post("/signup", async (req, res) => {
         );
 
         res.status(500).json({
-
             success: false,
-
             message:
                 "Unable to create account."
-
         });
-
     }
-
 });
-
 
 // ==================================================
 // LOGIN
@@ -594,31 +691,20 @@ app.post("/login", async (req, res) => {
                 req.body.password || ""
             );
 
-
         const loginValue =
-            email || name;
-
+            (email || name)
+                .toLowerCase();
 
         if (
             !loginValue ||
             !password
         ) {
-
             return res.status(400).json({
-
                 success: false,
-
                 message:
                     "Enter your name/email and password."
-
             });
-
         }
-
-
-        const value =
-            loginValue.toLowerCase();
-
 
         const result =
             await pool.query(
@@ -636,29 +722,21 @@ app.post("/login", async (req, res) => {
                    OR LOWER(name) = $1
                 LIMIT 1
                 `,
-                [value]
+                [loginValue]
             );
-
 
         if (
             result.rows.length === 0
         ) {
-
             return res.status(401).json({
-
                 success: false,
-
                 message:
                     "Account not found."
-
             });
-
         }
-
 
         const user =
             result.rows[0];
-
 
         const correctPassword =
             await verifyPassword(
@@ -666,52 +744,36 @@ app.post("/login", async (req, res) => {
                 user.password_hash
             );
 
-
         if (!correctPassword) {
-
             return res.status(401).json({
-
                 success: false,
-
                 message:
                     "Incorrect password."
-
             });
-
         }
 
-
         res.json({
-
             success: true,
-
             message:
                 "Login successful.",
-
+            name: user.name,
+            email: user.email,
+            balance:
+                Number(user.balance || 0),
+            vip_level:
+                Number(user.vip_level || 0),
             user: {
-
-                id:
-                    user.id,
-
-                name:
-                    user.name,
-
-                email:
-                    user.email,
-
+                id: user.id,
+                name: user.name,
+                email: user.email,
                 balance:
-                    Number(user.balance),
-
+                    Number(user.balance || 0),
                 vip_level:
-                    Number(user.vip_level),
-
+                    Number(user.vip_level || 0),
                 last_vip_claim:
                     user.last_vip_claim
-
             }
-
         });
-
 
     } catch (error) {
 
@@ -721,18 +783,12 @@ app.post("/login", async (req, res) => {
         );
 
         res.status(500).json({
-
             success: false,
-
             message:
                 "Unable to login."
-
         });
-
     }
-
 });
-
 
 // ==================================================
 // BALANCE
@@ -749,20 +805,13 @@ app.get("/balance", async (req, res) => {
             .trim()
             .toLowerCase();
 
-
         if (!email) {
-
             return res.status(400).json({
-
                 success: false,
-
                 message:
                     "Email is required."
-
             });
-
         }
-
 
         const result =
             await pool.query(
@@ -781,55 +830,50 @@ app.get("/balance", async (req, res) => {
                 [email]
             );
 
-
         if (
             result.rows.length === 0
         ) {
-
             return res.status(404).json({
-
                 success: false,
-
                 message:
                     "User not found."
-
             });
-
         }
-
 
         const user =
             result.rows[0];
 
+        const balance =
+            Number(user.balance || 0);
+
+        const vipLevel =
+            Number(user.vip_level || 0);
 
         res.json({
 
             success: true,
 
+            // Direct values for the frontend
+            balance: balance,
+
+            earnings: balance,
+
+            vip_level: vipLevel,
+
+            name: user.name,
+
+            email: user.email,
+
             user: {
-
-                id:
-                    user.id,
-
-                name:
-                    user.name,
-
-                email:
-                    user.email,
-
-                balance:
-                    Number(user.balance),
-
-                vip_level:
-                    Number(user.vip_level),
-
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                balance: balance,
+                vip_level: vipLevel,
                 last_vip_claim:
                     user.last_vip_claim
-
             }
-
         });
-
 
     } catch (error) {
 
@@ -839,18 +883,12 @@ app.get("/balance", async (req, res) => {
         );
 
         res.status(500).json({
-
             success: false,
-
             message:
                 "Unable to load balance."
-
         });
-
     }
-
 });
-
 
 // ==================================================
 // VIP INFORMATION
@@ -859,15 +897,11 @@ app.get("/balance", async (req, res) => {
 app.get("/vip-plans", (req, res) => {
 
     res.json({
-
         success: true,
-
         plans: vipPlans
-
     });
 
 });
-
 
 // ==================================================
 // CLAIM VIP DAILY REWARD
@@ -886,20 +920,13 @@ app.post(
                 .trim()
                 .toLowerCase();
 
-
             if (!email) {
-
                 return res.status(400).json({
-
                     success: false,
-
                     message:
                         "Email is required."
-
                 });
-
             }
-
 
             const result =
                 await pool.query(
@@ -916,46 +943,31 @@ app.post(
                     [email]
                 );
 
-
             if (
                 result.rows.length === 0
             ) {
-
                 return res.status(404).json({
-
                     success: false,
-
                     message:
                         "User not found."
-
                 });
-
             }
-
 
             const user =
                 result.rows[0];
 
-
             const level =
                 Number(
-                    user.vip_level
+                    user.vip_level || 0
                 );
 
-
             if (!vipPlans[level]) {
-
                 return res.status(400).json({
-
                     success: false,
-
                     message:
                         "You need an active VIP plan before claiming."
-
                 });
-
             }
-
 
             if (user.last_vip_claim) {
 
@@ -973,7 +985,6 @@ app.post(
                     ) /
                     (1000 * 60 * 60);
 
-
                 if (hours < 24) {
 
                     const remaining =
@@ -981,29 +992,20 @@ app.post(
                             24 - hours
                         );
 
-
                     return res.status(400).json({
-
                         success: false,
-
                         message:
                             `Your next reward is available in about ${remaining} hour(s).`
-
                     });
-
                 }
-
             }
-
 
             const reward =
                 vipPlans[level]
                     .dailyReward;
 
-
             const client =
                 await pool.connect();
-
 
             try {
 
@@ -1011,14 +1013,13 @@ app.post(
                     "BEGIN"
                 );
 
-
                 const updated =
                     await client.query(
                         `
                         UPDATE users
                         SET
                             balance =
-                                balance + $1,
+                                COALESCE(balance, 0) + $1,
 
                             last_vip_claim =
                                 CURRENT_TIMESTAMP
@@ -1035,7 +1036,6 @@ app.post(
                         ]
                     );
 
-
                 await client.query(
                     `
                     INSERT INTO transactions
@@ -1043,14 +1043,16 @@ app.post(
                         user_id,
                         type,
                         amount,
-                        description
+                        description,
+                        created_at
                     )
                     VALUES
                     (
                         $1,
                         'vip_reward',
                         $2,
-                        $3
+                        $3,
+                        CURRENT_TIMESTAMP
                     )
                     `,
                     [
@@ -1060,11 +1062,9 @@ app.post(
                     ]
                 );
 
-
                 await client.query(
                     "COMMIT"
                 );
-
 
                 res.json({
 
@@ -1073,8 +1073,7 @@ app.post(
                     message:
                         `₦${reward.toLocaleString()} VIP reward claimed.`,
 
-                    reward:
-                        reward,
+                    reward: reward,
 
                     balance:
                         Number(
@@ -1085,9 +1084,7 @@ app.post(
                     last_vip_claim:
                         updated.rows[0]
                             .last_vip_claim
-
                 });
-
 
             } catch (error) {
 
@@ -1100,9 +1097,7 @@ app.post(
             } finally {
 
                 client.release();
-
             }
-
 
         } catch (error) {
 
@@ -1112,19 +1107,13 @@ app.post(
             );
 
             res.status(500).json({
-
                 success: false,
-
                 message:
                     "Unable to claim VIP reward."
-
             });
-
         }
-
     }
 );
-
 
 // ==================================================
 // TRANSACTIONS
@@ -1143,20 +1132,13 @@ app.get(
                 .trim()
                 .toLowerCase();
 
-
             if (!email) {
-
                 return res.status(400).json({
-
                     success: false,
-
                     message:
                         "Email is required."
-
                 });
-
             }
-
 
             const userResult =
                 await pool.query(
@@ -1169,22 +1151,15 @@ app.get(
                     [email]
                 );
 
-
             if (
                 userResult.rows.length === 0
             ) {
-
                 return res.status(404).json({
-
                     success: false,
-
                     message:
                         "User not found."
-
                 });
-
             }
-
 
             const result =
                 await pool.query(
@@ -1206,16 +1181,11 @@ app.get(
                     ]
                 );
 
-
             res.json({
-
                 success: true,
-
                 transactions:
                     result.rows
-
             });
-
 
         } catch (error) {
 
@@ -1225,26 +1195,19 @@ app.get(
             );
 
             res.status(500).json({
-
                 success: false,
-
                 message:
                     "Unable to load transactions."
-
             });
-
         }
-
     }
 );
 
-
 // ==================================================
-// PAYMENT STATUS PLACEHOLDER
+// PAYMENT STATUS
 // ==================================================
-// This intentionally does not process payments yet.
-// We will replace it with the approved Moneta flow
-// after Moneta confirms Zavero.
+// Moneta payment processing remains disabled until
+// merchant approval is confirmed.
 // ==================================================
 
 app.get(
@@ -1263,12 +1226,10 @@ app.get(
 
             message:
                 "Payment integration is waiting for merchant approval."
-
         });
 
     }
 );
-
 
 // ==================================================
 // SERVER START
@@ -1279,7 +1240,6 @@ async function startServer() {
     try {
 
         await createTables();
-
 
         app.listen(
             PORT,
@@ -1292,7 +1252,6 @@ async function startServer() {
             }
         );
 
-
     } catch (error) {
 
         console.error(
@@ -1301,10 +1260,7 @@ async function startServer() {
         );
 
         process.exit(1);
-
     }
-
 }
-
 
 startServer();
