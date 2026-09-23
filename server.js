@@ -1202,7 +1202,88 @@ app.get(
         }
     }
 );
+// ==================================================
+// INITIALIZE PAYMENT
+// ==================================================
+// Payment checkout remains disabled until Moneta
+// confirms Zavero's merchant approval.
+// ==================================================
 
+app.post("/initialize-payment", async (req, res) => {
+
+    try {
+
+        const email =
+            String(
+                req.body.email || ""
+            )
+            .trim()
+            .toLowerCase();
+
+        const amount =
+            Number(req.body.amount || 0);
+
+        if (!email) {
+            return res.status(400).json({
+                success: false,
+                message: "Email is required."
+            });
+        }
+
+        if (!amount || amount <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Enter a valid amount."
+            });
+        }
+
+        // Check that the user exists
+        const userResult =
+            await pool.query(
+                `
+                SELECT id, name, email
+                FROM users
+                WHERE LOWER(email) = $1
+                LIMIT 1
+                `,
+                [email]
+            );
+
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "User account was not found."
+            });
+        }
+
+        /*
+         * Moneta checkout is intentionally not started here yet.
+         * This prevents an unapproved merchant account from
+         * accidentally creating real payment transactions.
+         */
+
+        return res.status(503).json({
+            success: false,
+            provider: "moneta",
+            status: "pending_approval",
+            message:
+                "Moneta payment checkout is waiting for merchant approval."
+        });
+
+    } catch (error) {
+
+        console.error(
+            "INITIALIZE PAYMENT ERROR:",
+            error
+        );
+
+        return res.status(500).json({
+            success: false,
+            message:
+                "Unable to initialize payment."
+        });
+    }
+});
 // ==================================================
 // PAYMENT STATUS
 // ==================================================
