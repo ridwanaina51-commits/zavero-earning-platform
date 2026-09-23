@@ -7,1903 +7,1478 @@ const app = express();
 
 app.use(cors());
 
-/*
-
-IMPORTANT:
-Webhook must receive the RAW request body.
-Therefore this route is registered BEFORE express.json().
-
-*/
-
 const PORT = process.env.PORT || 10000;
 
 const DATABASE_URL = process.env.DATABASE_URL;
 
 const MONETA_BASE_URL =
-process.env.MONETA_BASE_URL ||
-"https://api.moneta.ng/api/v2";
+  process.env.MONETA_BASE_URL ||
+  "https://api.moneta.ng/api/v2";
 
 const MONETA_SERVICE_KEY = process.env.MONETA_SERVICE_KEY;
 const MONETA_MAC_KEY = process.env.MONETA_MAC_KEY;
 
 const SITE_URL =
-process.env.SITE_URL ||
-"https://zavero-earning-platform.onrender.com";
+  process.env.SITE_URL ||
+  "https://zavero-earning-platform.onrender.com";
+
+const FRONTEND_URL =
+  process.env.FRONTEND_URL ||
+  SITE_URL;
 
 if (!DATABASE_URL) {
-console.error("DATABASE_URL is missing.");
+  console.error("ERROR: DATABASE_URL is missing.");
 }
 
 if (!MONETA_SERVICE_KEY) {
-console.error("MONETA_SERVICE_KEY is missing.");
+  console.error("WARNING: MONETA_SERVICE_KEY is missing.");
 }
 
 if (!MONETA_MAC_KEY) {
-console.error("MONETA_MAC_KEY is missing.");
+  console.error("WARNING: MONETA_MAC_KEY is missing.");
 }
 
 const pool = new Pool({
-connectionString: DATABASE_URL,
-ssl: {
-rejectUnauthorized: false
-}
+  connectionString: DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
-/*
 
-NORMAL JSON ROUTES
-
-*/
-
-app.use(express.json());
-
-/*
-
-VIP PLANS
-
-*/
-
-const VIP_PLANS = {
-1: {
-price: 1500,
-dailyReward: 200
-},
-2: {
-price: 5000,
-dailyReward: 800
-},
-3: {
-price: 10000,
-dailyReward: 1750
-},
-4: {
-price: 25000,
-dailyReward: 4100
-},
-5: {
-price: 50000,
-dailyReward: 7500
-},
-6: {
-price: 100000,
-dailyReward: 15000
-}
-};
-
-/*
-
-DATABASE SETUP
-
-*/
+/* =========================================================
+   DATABASE
+========================================================= */
 
 async function setupDatabase() {
-await pool.query(  CREATE TABLE IF NOT EXISTS users (   id SERIAL PRIMARY KEY,   name TEXT,   email TEXT UNIQUE,   password_hash TEXT,   balance NUMERIC(14,2) DEFAULT 0,   vip_level INTEGER DEFAULT 0,   last_vip_claim TIMESTAMP NULL,   created_at TIMESTAMP DEFAULT NOW()   )  );
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      balance NUMERIC(14,2) DEFAULT 0,
+      vip_level INTEGER DEFAULT 0,
+      last_vip_claim TIMESTAMP NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
 
-await pool.query(`  
-    ALTER TABLE users  
-    ADD COLUMN IF NOT EXISTS name TEXT  
-`);  
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS payments (
+      id SERIAL PRIMARY KEY,
+      reference TEXT UNIQUE NOT NULL,
+      email TEXT NOT NULL,
+      amount NUMERIC(14,2) NOT NULL,
+      payment_type TEXT,
+      status TEXT DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT NOW(),
+      completed_at TIMESTAMP NULL
+    );
+  `);
 
-await pool.query(`  
-    ALTER TABLE users  
-    ADD COLUMN IF NOT EXISTS email TEXT  
-`);  
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS transactions (
+      id SERIAL PRIMARY KEY,
+      email TEXT NOT NULL,
+      type TEXT NOT NULL,
+      amount NUMERIC(14,2) NOT NULL,
+      reference TEXT,
+      description TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
 
-await pool.query(`  
-    ALTER TABLE users  
-    ADD COLUMN IF NOT EXISTS password_hash TEXT  
-`);  
-
-await pool.query(`  
-    ALTER TABLE users  
-    ADD COLUMN IF NOT EXISTS balance NUMERIC(14,2) DEFAULT 0  
-`);  
-
-await pool.query(`  
-    ALTER TABLE users  
-    ADD COLUMN IF NOT EXISTS vip_level INTEGER DEFAULT 0  
-`);  
-
-await pool.query(`  
-    ALTER TABLE users  
-    ADD COLUMN IF NOT EXISTS last_vip_claim TIMESTAMP NULL  
-`);  
-
-await pool.query(`  
-    ALTER TABLE users  
-    ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()  
-`);  
-
-await pool.query(`  
-    CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_unique  
-    ON users (LOWER(email))  
-`);  
-
-await pool.query(`  
-    CREATE TABLE IF NOT EXISTS payments (  
-        id SERIAL PRIMARY KEY,  
-        reference TEXT UNIQUE,  
-        email TEXT,  
-        amount_kobo BIGINT,  
-        amount_naira NUMERIC(14,2),  
-        status TEXT DEFAULT 'pending',  
-        provider TEXT DEFAULT 'moneta',  
-        created_at TIMESTAMP DEFAULT NOW(),  
-        updated_at TIMESTAMP DEFAULT NOW()  
-    )  
-`);  
-
-await pool.query(`  
-    ALTER TABLE payments  
-    ADD COLUMN IF NOT EXISTS reference TEXT  
-`);  
-
-await pool.query(`  
-    ALTER TABLE payments  
-    ADD COLUMN IF NOT EXISTS email TEXT  
-`);  
-
-await pool.query(`  
-    ALTER TABLE payments  
-    ADD COLUMN IF NOT EXISTS amount_kobo BIGINT  
-`);  
-await pool.query(`
-    ALTER TABLE payments
-    ADD COLUMN IF NOT EXISTS amount NUMERIC(14,2)
-`);
-await pool.query(`  
-    ALTER TABLE payments  
-    ADD COLUMN IF NOT EXISTS amount_naira NUMERIC(14,2)  
-`);  
-
-await pool.query(`  
-    ALTER TABLE payments  
-    ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending'  
-`);  
-
-await pool.query(`  
-    ALTER TABLE payments  
-    ADD COLUMN IF NOT EXISTS provider TEXT DEFAULT 'moneta'  
-`);  
-
-await pool.query(`  
-    ALTER TABLE payments  
-    ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()  
-`);  
-
-await pool.query(`  
-    ALTER TABLE payments  
-    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()  
-`);  
-
-await pool.query(`  
-    CREATE UNIQUE INDEX IF NOT EXISTS payments_reference_unique  
-    ON payments(reference)  
-    WHERE reference IS NOT NULL  
-`);  
-
-await pool.query(`  
-    CREATE TABLE IF NOT EXISTS transactions (  
-        id SERIAL PRIMARY KEY,  
-        email TEXT,  
-        type TEXT,  
-        amount NUMERIC(14,2),  
-        reference TEXT,  
-        description TEXT,  
-        created_at TIMESTAMP DEFAULT NOW()  
-    )  
-`);  
-
-await pool.query(`  
-    ALTER TABLE transactions  
-    ADD COLUMN IF NOT EXISTS email TEXT  
-`);  
-
-await pool.query(`  
-    ALTER TABLE transactions  
-    ADD COLUMN IF NOT EXISTS type TEXT  
-`);  
-
-await pool.query(`  
-    ALTER TABLE transactions  
-    ADD COLUMN IF NOT EXISTS amount NUMERIC(14,2)  
-`);  
-
-await pool.query(`  
-    ALTER TABLE transactions  
-    ADD COLUMN IF NOT EXISTS reference TEXT  
-`);  
-
-await pool.query(`  
-    ALTER TABLE transactions  
-    ADD COLUMN IF NOT EXISTS description TEXT  
-`);  
-
-await pool.query(`  
-    ALTER TABLE transactions  
-    ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()  
-`);  
-
-console.log("DATABASE READY");
-
+  console.log("Database tables are ready.");
 }
 
-/*
 
-PASSWORD FUNCTIONS
-
-*/
+/* =========================================================
+   PASSWORD FUNCTIONS
+========================================================= */
 
 function hashPassword(password) {
-return new Promise((resolve, reject) => {
-const salt = crypto.randomBytes(16).toString("hex");
+  return new Promise((resolve, reject) => {
+    crypto.randomBytes(16, (err, salt) => {
+      if (err) return reject(err);
 
-crypto.scrypt(password, salt, 64, (error, derivedKey) => {  
-        if (error) {  
-            reject(error);  
-            return;  
-        }  
+      crypto.scrypt(password, salt, 64, (err, derivedKey) => {
+        if (err) return reject(err);
 
-        resolve(  
-            salt +  
-            ":" +  
-            derivedKey.toString("hex")  
-        );  
-    });  
-});
-
+        resolve(
+          `${salt.toString("hex")}:${derivedKey.toString("hex")}`
+        );
+      });
+    });
+  });
 }
+
 
 function verifyPassword(password, storedPassword) {
-return new Promise((resolve, reject) => {
-try {
-const parts = String(storedPassword).split(":");
+  return new Promise((resolve, reject) => {
+    try {
+      const [saltHex, keyHex] = storedPassword.split(":");
 
-if (parts.length !== 2) {  
-            resolve(false);  
-            return;  
-        }  
+      const salt = Buffer.from(saltHex, "hex");
+      const storedKey = Buffer.from(keyHex, "hex");
 
-        const salt = parts[0];  
-        const storedKey = Buffer.from(parts[1], "hex");  
+      crypto.scrypt(password, salt, 64, (err, derivedKey) => {
+        if (err) return reject(err);
 
-        crypto.scrypt(password, salt, 64, (error, derivedKey) => {  
-            if (error) {  
-                reject(error);  
-                return;  
-            }  
-
-            resolve(  
-                crypto.timingSafeEqual(  
-                    storedKey,  
-                    derivedKey  
-                )  
-            );  
-        });  
-    } catch {  
-        resolve(false);  
-    }  
-});
-
+        resolve(
+          crypto.timingSafeEqual(storedKey, derivedKey)
+        );
+      });
+    } catch (error) {
+      resolve(false);
+    }
+  });
 }
 
-/*
 
-CREATE TRANSACTION REFERENCE
-
-*/
+/* =========================================================
+   HELPERS
+========================================================= */
 
 function createTransactionReference() {
-const randomPart = crypto
-.randomBytes(8)
-.toString("hex")
-.toUpperCase();
-
-return `ZAVERO-${Date.now()}-${randomPart}`;
-
+  return (
+    "ZAVERO-" +
+    Date.now() +
+    "-" +
+    crypto.randomBytes(5).toString("hex").toUpperCase()
+  );
 }
 
-/*
-
-MONETA HASH
-
-*/
 
 function generateMonetaHash(
-email,
-amountKobo,
-paymentType,
-callbackUrl
+  email,
+  amountKobo,
+  paymentType,
+  callbackUrl
 ) {
-const textToHash =
-email +
-String(amountKobo) +
-paymentType +
-callbackUrl;
+  if (!MONETA_MAC_KEY) {
+    throw new Error("MONETA_MAC_KEY is not configured.");
+  }
 
-return crypto  
-    .createHmac("sha512", MONETA_MAC_KEY)  
-    .update(textToHash)  
+  const payload =
+    `${email}|${amountKobo}|${paymentType}|${callbackUrl}`;
+
+  return crypto
+    .createHmac("sha512", MONETA_MAC_KEY)
+    .update(payload)
     .digest("hex");
-
 }
 
-/*
 
-ROOT
+function toAbsoluteMonetaUrl(url) {
+  if (!url) return null;
 
-*/
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+
+  if (url.startsWith("/")) {
+    return `https://api.moneta.ng${url}`;
+  }
+
+  return url;
+}
+
+
+/* =========================================================
+   ROOT / TEST
+========================================================= */
 
 app.get("/", (req, res) => {
-res.json({
-success: true,
-message: "Zavero backend is working",
-provider: "Moneta",
-environment: "production"
-});
-});
-
-/*
-
-TEST
-
-*/
-
-app.get("/test", async (req, res) => {
-try {
-const result = await pool.query("SELECT NOW() AS time");
-
-res.json({  
-        success: true,  
-        message: "Zavero connection test is working",  
-        databaseTime: result.rows[0].time  
-    });  
-} catch (error) {  
-    console.error("TEST ERROR:", error);  
-
-    res.status(500).json({  
-        success: false,  
-        message: "Database connection failed."  
-    });  
-}
-
+  res.json({
+    success: true,
+    message: "Zavero backend is working!",
+    status: "online"
+  });
 });
 
-/*
 
-SIGN UP
+app.get("/test", (req, res) => {
+  res.json({
+    success: true,
+    message: "Zavero connection test is working!"
+  });
+});
 
-*/
+
+/* =========================================================
+   SIGN UP
+========================================================= */
 
 app.post("/signup", async (req, res) => {
-try {
-const name = String(req.body.name || "").trim();
-const email = String(req.body.email || "")
-.trim()
-.toLowerCase();
+  try {
+    const { name, email, password } = req.body;
 
-const password = String(req.body.password || "");  
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Name, email and password are required."
+      });
+    }
 
-    if (!name || !email || !password) {  
-        return res.status(400).json({  
-            success: false,  
-            message: "Name, email and password are required."  
-        });  
-    }  
+    const cleanName = String(name).trim();
+    const cleanEmail = String(email).trim().toLowerCase();
 
-    if (password.length < 6) {  
-        return res.status(400).json({  
-            success: false,  
-            message: "Password must be at least 6 characters."  
-        });  
-    }  
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters."
+      });
+    }
 
-    const existing = await pool.query(  
-        `  
-        SELECT id  
-        FROM users  
-        WHERE LOWER(email) = $1  
-        LIMIT 1  
-        `,  
-        [email]  
-    );  
+    const existingUser = await pool.query(
+      "SELECT id FROM users WHERE email = $1",
+      [cleanEmail]
+    );
 
-    if (existing.rows.length > 0) {  
-        return res.status(409).json({  
-            success: false,  
-            message: "An account with this email already exists."  
-        });  
-    }  
+    if (existingUser.rows.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: "An account with this email already exists."
+      });
+    }
 
-    const passwordHash = await hashPassword(password);  
+    const passwordHash = await hashPassword(password);
 
-    const result = await pool.query(  
-        `  
-        INSERT INTO users  
-        (name, email, password_hash, balance, vip_level)  
-        VALUES ($1, $2, $3, 0, 0)  
-        RETURNING id, name, email, balance, vip_level  
-        `,  
-        [  
-            name,  
-            email,  
-            passwordHash  
-        ]  
-    );  
+    await pool.query(
+      `
+      INSERT INTO users
+      (name, email, password_hash, balance, vip_level)
+      VALUES ($1, $2, $3, 0, 0)
+      `,
+      [
+        cleanName,
+        cleanEmail,
+        passwordHash
+      ]
+    );
 
-    res.json({  
-        success: true,  
-        message: "Account created successfully.",  
-        name: result.rows[0].name,  
-        email: result.rows[0].email  
-    });  
+    res.json({
+      success: true,
+      message: "Account created successfully."
+    });
 
-} catch (error) {  
-    console.error("SIGNUP ERROR:", error);  
+  } catch (error) {
+    console.error("SIGNUP ERROR:", error);
 
-    res.status(500).json({  
-        success: false,  
-        message: "Unable to create account."  
-    });  
-}
-
+    res.status(500).json({
+      success: false,
+      message: "Unable to create account."
+    });
+  }
 });
 
-/*
 
-LOGIN
-
-*/
+/* =========================================================
+   LOGIN
+========================================================= */
 
 app.post("/login", async (req, res) => {
-try {
-const email = String(req.body.email || "")
-.trim()
-.toLowerCase();
+  try {
+    const { email, password } = req.body;
 
-const password = String(req.body.password || "");  
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and password are required."
+      });
+    }
 
-    if (!email || !password) {  
-        return res.status(400).json({  
-            success: false,  
-            message: "Email and password are required."  
-        });  
-    }  
+    const cleanEmail = String(email).trim().toLowerCase();
 
-    const result = await pool.query(  
-        `  
-        SELECT  
-            id,  
-            name,  
-            email,  
-            password_hash,  
-            balance,  
-            vip_level  
-        FROM users  
-        WHERE LOWER(email) = $1  
-        LIMIT 1  
-        `,  
-        [email]  
-    );  
+    const result = await pool.query(
+      `
+      SELECT
+        id,
+        name,
+        email,
+        password_hash,
+        balance,
+        vip_level,
+        last_vip_claim
+      FROM users
+      WHERE email = $1
+      `,
+      [cleanEmail]
+    );
 
-    if (result.rows.length === 0) {  
-        return res.status(401).json({  
-            success: false,  
-            message: "Invalid email or password."  
-        });  
-    }  
+    if (result.rows.length === 0) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password."
+      });
+    }
 
-    const user = result.rows[0];  
+    const user = result.rows[0];
 
-    const passwordCorrect = await verifyPassword(  
-        password,  
-        user.password_hash  
-    );  
+    const passwordCorrect = await verifyPassword(
+      password,
+      user.password_hash
+    );
 
-    if (!passwordCorrect) {  
-        return res.status(401).json({  
-            success: false,  
-            message: "Invalid email or password."  
-        });  
-    }  
+    if (!passwordCorrect) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password."
+      });
+    }
 
-    res.json({  
-        success: true,  
-        message: "Login successful.",  
-        name: user.name,  
-        email: user.email,  
-        balance: Number(user.balance || 0),  
-        vip_level: Number(user.vip_level || 0),  
+    res.json({
+      success: true,
+      message: "Login successful.",
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        balance: Number(user.balance || 0),
+        vip_level: Number(user.vip_level || 0),
+        last_vip_claim: user.last_vip_claim
+      }
+    });
 
-        user: {  
-            id: user.id,  
-            name: user.name,  
-            email: user.email,  
-            balance: Number(user.balance || 0),  
-            vip_level: Number(user.vip_level || 0)  
-        }  
-    });  
+  } catch (error) {
+    console.error("LOGIN ERROR:", error);
 
-} catch (error) {  
-    console.error("LOGIN ERROR:", error);  
-
-    res.status(500).json({  
-        success: false,  
-        message: "Unable to login."  
-    });  
-}
-
+    res.status(500).json({
+      success: false,
+      message: "Unable to login."
+    });
+  }
 });
 
-/*
 
-BALANCE
-
-*/
+/* =========================================================
+   BALANCE
+========================================================= */
 
 app.get("/balance", async (req, res) => {
-try {
-const email = String(req.query.email || "")
-.trim()
-.toLowerCase();
+  try {
+    const email = String(req.query.email || "")
+      .trim()
+      .toLowerCase();
 
-if (!email) {  
-        return res.status(400).json({  
-            success: false,  
-            message: "Email is required."  
-        });  
-    }  
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required."
+      });
+    }
 
-    const result = await pool.query(  
-        `  
-        SELECT  
-            name,  
-            email,  
-            balance,  
-            vip_level  
-        FROM users  
-        WHERE LOWER(email) = $1  
-        LIMIT 1  
-        `,  
-        [email]  
-    );  
+    const result = await pool.query(
+      `
+      SELECT
+        name,
+        email,
+        balance,
+        vip_level,
+        last_vip_claim
+      FROM users
+      WHERE email = $1
+      `,
+      [email]
+    );
 
-    if (result.rows.length === 0) {  
-        return res.status(404).json({  
-            success: false,  
-            message: "User not found."  
-        });  
-    }  
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found."
+      });
+    }
 
-    const user = result.rows[0];  
+    const user = result.rows[0];
 
-    res.json({  
-        success: true,  
-        balance: Number(user.balance || 0),  
-        earnings: Number(user.balance || 0),  
-        vip_level: Number(user.vip_level || 0),  
-        name: user.name,  
-        email: user.email,  
+    res.json({
+      success: true,
+      name: user.name,
+      email: user.email,
+      balance: Number(user.balance || 0),
+      vip_level: Number(user.vip_level || 0),
+      last_vip_claim: user.last_vip_claim
+    });
 
-        user: {  
-            name: user.name,  
-            email: user.email,  
-            balance: Number(user.balance || 0),  
-            vip_level: Number(user.vip_level || 0)  
-        }  
-    });  
+  } catch (error) {
+    console.error("BALANCE ERROR:", error);
 
-} catch (error) {  
-    console.error("BALANCE ERROR:", error);  
-
-    res.status(500).json({  
-        success: false,  
-        message: "Unable to load balance."  
-    });  
-}
-
+    res.status(500).json({
+      success: false,
+      message: "Unable to load balance."
+    });
+  }
 });
 
-/*
 
-VIP PLANS
+/* =========================================================
+   VIP PLANS
+========================================================= */
 
-*/
+const VIP_PLANS = {
+  1: {
+    price: 1500,
+    dailyReward: 200
+  },
+  2: {
+    price: 5000,
+    dailyReward: 800
+  },
+  3: {
+    price: 10000,
+    dailyReward: 1750
+  },
+  4: {
+    price: 25000,
+    dailyReward: 4100
+  },
+  5: {
+    price: 50000,
+    dailyReward: 7500
+  },
+  6: {
+    price: 100000,
+    dailyReward: 15000
+  }
+};
+
 
 app.get("/vip-plans", (req, res) => {
-res.json({
-success: true,
-plans: VIP_PLANS
+  res.json({
+    success: true,
+    plans: VIP_PLANS
+  });
 });
-});
 
-/*
 
-INITIALIZE MONETA PAYMENT
-
-*/
+/* =========================================================
+   INITIALIZE MONETA PAYMENT
+========================================================= */
 
 app.post("/initialize-payment", async (req, res) => {
-try {
-const email = String(req.body.email || "")
-.trim()
-.toLowerCase();
+  try {
+    const {
+      email,
+      amount,
+      payment_type
+    } = req.body;
 
-const amountNaira = Number(req.body.amount || 0);  
+    if (!email || !amount) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and amount are required."
+      });
+    }
 
-    const paymentTypeInput =  
-        String(req.body.payment_type || "card")  
-            .trim()  
-            .toLowerCase();  
+    if (!MONETA_SERVICE_KEY || !MONETA_MAC_KEY) {
+      return res.status(500).json({
+        success: false,
+        message: "Moneta payment configuration is missing on the server."
+      });
+    }
 
-    const allowedPaymentTypes = [  
-        "card",  
-        "ussd",  
-        "bank-transfer"  
-    ];  
+    const cleanEmail = String(email)
+      .trim()
+      .toLowerCase();
 
-    const paymentType =  
-        allowedPaymentTypes.includes(paymentTypeInput)  
-            ? paymentTypeInput  
-            : "card";  
+    const numericAmount = Number(amount);
 
-    if (!email) {  
-        return res.status(400).json({  
-            success: false,  
-            message: "Email is required."  
-        });  
-    }  
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Enter a valid amount."
+      });
+    }
 
-    if (  
-        !Number.isFinite(amountNaira) ||  
-        amountNaira <= 0  
-    ) {  
-        return res.status(400).json({  
-            success: false,  
-            message: "Enter a valid amount."  
-        });  
-    }  
+    const allowedTypes = [
+      "card",
+      "ussd",
+      "bank-transfer"
+    ];
 
-    const userResult = await pool.query(  
-        `  
-        SELECT id, name, email  
-        FROM users  
-        WHERE LOWER(email) = $1  
-        LIMIT 1  
-        `,  
-        [email]  
-    );  
+    const cleanPaymentType =
+      allowedTypes.includes(payment_type)
+        ? payment_type
+        : "card";
 
-    if (userResult.rows.length === 0) {  
-        return res.status(404).json({  
-            success: false,  
-            message: "User account was not found."  
-        });  
-    }  
+    const userResult = await pool.query(
+      "SELECT id FROM users WHERE email = $1",
+      [cleanEmail]
+    );
 
-    /*  
-    Moneta expects amount in KOBO.  
-    Example:  
-    ₦1,000 = 100000 kobo  
-    */  
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "User account was not found."
+      });
+    }
 
-    const amountKobo = Math.round(  
-        amountNaira * 100  
-    );  
+    /*
+      Frontend amount is assumed to be Naira.
+      Moneta request amount is sent in kobo.
+    */
 
-    const reference =  
-        createTransactionReference();  
+    const amountKobo = Math.round(
+      numericAmount * 100
+    );
 
-    const callbackUrl =  
-        `${SITE_URL}/payment-callback`;  
+    const reference =
+      createTransactionReference();
 
-    const hash = generateMonetaHash(  
-        email,  
-        amountKobo,  
-        paymentType,  
-        callbackUrl  
-    );  
+    const callbackUrl =
+      `${SITE_URL}/payment-callback`;
 
-    /*  
-    Save pending payment before contacting Moneta.  
-    */  
+    const hash = generateMonetaHash(
+      cleanEmail,
+      amountKobo,
+      cleanPaymentType,
+      callbackUrl
+    );
 
-    
-await pool.query(
-    `
-    INSERT INTO payments
-    (
+    await pool.query(
+      `
+      INSERT INTO payments
+      (reference, email, amount, payment_type, status)
+      VALUES ($1, $2, $3, $4, 'pending')
+      `,
+      [
+        reference,
+        cleanEmail,
+        numericAmount,
+        cleanPaymentType
+      ]
+    );
+
+    const monetaResponse = await fetch(
+      `${MONETA_BASE_URL}/transaction/initialize`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Service-Token": MONETA_SERVICE_KEY
+        },
+        body: JSON.stringify({
+          txnref: reference,
+          amount: amountKobo,
+          email: cleanEmail,
+          payment_type: cleanPaymentType,
+          hash: hash,
+          callback_url: callbackUrl,
+          json: true
+        })
+      }
+    );
+
+    const responseText =
+      await monetaResponse.text();
+
+    let data;
+
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      console.error(
+        "MONETA NON-JSON RESPONSE:",
+        responseText
+      );
+
+      return res.status(502).json({
+        success: false,
+        message: "Moneta returned an invalid response."
+      });
+    }
+
+    console.log(
+      "MONETA INITIALIZE RESPONSE:",
+      JSON.stringify(data)
+    );
+
+    if (!monetaResponse.ok) {
+      return res.status(502).json({
+        success: false,
+        message:
+          data.message ||
+          data.error ||
+          "Moneta payment initialization failed.",
+        moneta: data
+      });
+    }
+
+    const success =
+      data.status === true ||
+      data.status === "success" ||
+      data.success === true;
+
+    if (!success) {
+      return res.status(400).json({
+        success: false,
+        message:
+          data.message ||
+          data.error ||
+          "Moneta could not initialize the payment.",
+        moneta: data
+      });
+    }
+
+    const authorizationUrl =
+      data.authorization_url ||
+      data.checkout_url ||
+      data.data?.authorization_url ||
+      data.data?.checkout_url ||
+      data.data?.url;
+
+    if (!authorizationUrl) {
+      console.error(
+        "MONETA CHECKOUT URL MISSING:",
+        data
+      );
+
+      return res.status(502).json({
+        success: false,
+        message: "Moneta did not return a checkout URL."
+      });
+    }
+
+    res.json({
+      success: true,
+      reference: reference,
+      authorization_url:
+        toAbsoluteMonetaUrl(authorizationUrl)
+    });
+
+  } catch (error) {
+    console.error(
+      "INITIALIZE PAYMENT ERROR:",
+      error
+    );
+
+    res.status(500).json({
+      success: false,
+      message:
+        "Unable to initialize payment."
+    });
+  }
+});
+
+
+/* =========================================================
+   MONETA VERIFY
+========================================================= */
+
+async function verifyMonetaTransaction(reference) {
+  if (!MONETA_SERVICE_KEY) {
+    throw new Error(
+      "MONETA_SERVICE_KEY is not configured."
+    );
+  }
+
+  const verifyUrl =
+    `${MONETA_BASE_URL}/transaction/charge/verify/${encodeURIComponent(
+      reference
+    )}`;
+
+  const response = await fetch(
+    verifyUrl,
+    {
+      method: "GET",
+      headers: {
+        "X-Service-Token": MONETA_SERVICE_KEY,
+        "Accept": "application/json"
+      }
+    }
+  );
+
+  const responseText =
+    await response.text();
+
+  let data;
+
+  try {
+    data = JSON.parse(responseText);
+  } catch {
+    throw new Error(
+      "Moneta verification returned invalid JSON."
+    );
+  }
+
+  console.log(
+    "MONETA VERIFY RESPONSE:",
+    JSON.stringify(data)
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      data.message ||
+      data.error ||
+      "Moneta verification failed."
+    );
+  }
+
+  return data;
+}
+
+
+/* =========================================================
+   CREDIT VERIFIED PAYMENT
+========================================================= */
+
+async function creditVerifiedPayment(reference) {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const paymentResult = await client.query(
+      `
+      SELECT *
+      FROM payments
+      WHERE reference = $1
+      FOR UPDATE
+      `,
+      [reference]
+    );
+
+    if (paymentResult.rows.length === 0) {
+      throw new Error(
+        "Payment reference was not found."
+      );
+    }
+
+    const payment =
+      paymentResult.rows[0];
+
+    /*
+      Prevent double credit.
+    */
+
+    if (payment.status === "completed") {
+      await client.query("COMMIT");
+
+      return {
+        success: true,
+        alreadyCompleted: true,
+        email: payment.email,
+        amount: Number(payment.amount)
+      };
+    }
+
+    const verification =
+      await verifyMonetaTransaction(
+        reference
+      );
+
+    const verifiedStatus =
+      String(
+        verification.status ||
+        verification.data?.status ||
+        verification.data?.payment_status ||
+        verification.data?.transaction_status ||
+        ""
+      ).toLowerCase();
+
+    const paid =
+      [
+        "success",
+        "successful",
+        "completed",
+        "complete",
+        "paid"
+      ].includes(verifiedStatus);
+
+    if (!paid) {
+      await client.query("ROLLBACK");
+
+      return {
+        success: false,
+        completed: false,
+        status: verifiedStatus || "pending"
+      };
+    }
+
+    /*
+      Always credit the amount originally stored
+      in our database, not an amount supplied by
+      the browser.
+    */
+
+    const amount =
+      Number(payment.amount);
+
+    await client.query(
+      `
+      UPDATE users
+      SET balance = balance + $1
+      WHERE email = $2
+      `,
+      [
+        amount,
+        payment.email
+      ]
+    );
+
+    await client.query(
+      `
+      UPDATE payments
+      SET
+        status = 'completed',
+        completed_at = NOW()
+      WHERE reference = $1
+      `,
+      [reference]
+    );
+
+    await client.query(
+      `
+      INSERT INTO transactions
+      (email, type, amount, reference, description)
+      VALUES
+      ($1, 'deposit', $2, $3, $4)
+      `,
+      [
+        payment.email,
+        amount,
+        reference,
+        "Moneta deposit"
+      ]
+    );
+
+    await client.query("COMMIT");
+
+    return {
+      success: true,
+      completed: true,
+      email: payment.email,
+      amount: amount
+    };
+
+  } catch (error) {
+    try {
+      await client.query("ROLLBACK");
+    } catch {}
+
+    throw error;
+
+  } finally {
+    client.release();
+  }
+}
+
+
+/* =========================================================
+   VERIFY PAYMENT FROM FRONTEND
+========================================================= */
+
+app.get("/verify-payment", async (req, res) => {
+  try {
+    const reference =
+      String(req.query.reference || "").trim();
+
+    if (!reference) {
+      return res.status(400).json({
+        success: false,
+        message: "Payment reference is required."
+      });
+    }
+
+    const result =
+      await creditVerifiedPayment(
+        reference
+      );
+
+    res.json(result);
+
+  } catch (error) {
+    console.error(
+      "VERIFY PAYMENT ERROR:",
+      error
+    );
+
+    res.status(500).json({
+      success: false,
+      message:
+        error.message ||
+        "Unable to verify payment."
+    });
+  }
+});
+
+
+/* =========================================================
+   PAYMENT STATUS
+========================================================= */
+
+app.get("/payment-status", async (req, res) => {
+  try {
+    const reference =
+      String(req.query.reference || "").trim();
+
+    if (!reference) {
+      return res.status(400).json({
+        success: false,
+        message: "Reference is required."
+      });
+    }
+
+    const result = await pool.query(
+      `
+      SELECT
         reference,
         email,
         amount,
-        amount_kobo,
-        amount_naira,
+        payment_type,
         status,
-        provider
-    )
-    VALUES ($1, $2, $3, $4, $5, 'pending', 'moneta')
-    `,
-    [
-        reference,
-        email,
-        amountNaira,
-        amountKobo,
-        amountNaira
-    ]
-);
-    const monetaResponse = await fetch(  
-        `${MONETA_BASE_URL}/transaction/initialize`,  
-        {  
-            method: "POST",  
+        created_at,
+        completed_at
+      FROM payments
+      WHERE reference = $1
+      `,
+      [reference]
+    );
 
-            headers: {  
-                "Content-Type": "application/json",  
-                "X-Service-Token": MONETA_SERVICE_KEY  
-            },  
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Payment not found."
+      });
+    }
 
-            body: JSON.stringify({  
-                txnref: reference,  
-                amount: amountKobo,  
-                email: email,  
-                payment_type: paymentType,  
-                hash: hash,  
-                callback_url: callbackUrl,  
-                json: true  
-            })  
-        }  
-    );  
+    res.json({
+      success: true,
+      payment: result.rows[0]
+    });
 
-    const responseText =  
-        await monetaResponse.text();  
+  } catch (error) {
+    console.error(
+      "PAYMENT STATUS ERROR:",
+      error
+    );
 
-    let monetaData;  
-
-    try {  
-        monetaData =  
-            JSON.parse(responseText);  
-    } catch {  
-        console.error(  
-            "MONETA NON-JSON RESPONSE:",  
-            responseText  
-        );  
-
-        return res.status(502).json({  
-            success: false,  
-            message:  
-                "Moneta returned an invalid response."  
-        });  
-    }  
-
-    console.log(  
-        "MONETA INITIALIZE RESPONSE:",  
-        JSON.stringify(monetaData)  
-    );  
-
-    if (  
-        !monetaResponse.ok ||  
-        monetaData.status !== "success"  
-    ) {  
-        await pool.query(  
-            `  
-            UPDATE payments  
-            SET status = 'initialize_failed',  
-                updated_at = NOW()  
-            WHERE reference = $1  
-            `,  
-            [reference]  
-        );  
-
-        return res.status(502).json({  
-            success: false,  
-            message:  
-                monetaData.message ||  
-                "Unable to initialize Moneta payment.",  
-            providerResponse: monetaData  
-        });  
-    }  
-
-    let authorizationUrl =  
-        monetaData.authorization_url ||  
-        monetaData.data?.authorization_url;  
-
-    /*  
-    Moneta's example returns authorization_url  
-    as a relative path such as:  
-
-    /api/v2/txn/isw/REFERENCE  
-
-    Convert it to a full HTTPS URL.  
-    */  
-
-    if (  
-        authorizationUrl &&  
-        authorizationUrl.startsWith("/")  
-    ) {  
-        authorizationUrl =  
-            `https://api.moneta.ng${authorizationUrl}`;  
-    }  
-
-    if (!authorizationUrl) {  
-        await pool.query(  
-            `  
-            UPDATE payments  
-            SET status = 'missing_checkout_url',  
-                updated_at = NOW()  
-            WHERE reference = $1  
-            `,  
-            [reference]  
-        );  
-
-        return res.status(502).json({  
-            success: false,  
-            message:  
-                "Moneta did not return a checkout URL.",  
-            providerResponse: monetaData  
-        });  
-    }  
-
-    res.json({  
-        success: true,  
-        message: "Payment initialized.",  
-        reference: reference,  
-        amount: amountNaira,  
-        authorization_url: authorizationUrl  
-    });  
-
-} catch (error) {  
-    console.error(  
-        "INITIALIZE PAYMENT ERROR:",  
-        error  
-    );  
-
-    res.status(500).json({  
-        success: false,  
-        message:  
-            "Unable to initialize payment."  
-    });  
-}
-
+    res.status(500).json({
+      success: false,
+      message:
+        "Unable to get payment status."
+    });
+  }
 });
 
-/*
 
-VERIFY MONETA TRANSACTION
-
-*/
-
-async function verifyMonetaTransaction(reference) {
-const response = await fetch(
-${MONETA_BASE_URL}/transaction/charge/verify/reference,
-{
-method: "POST",
-
-headers: {  
-            "X-Service-Token": MONETA_SERVICE_KEY,  
-            "Content-Type": "application/json"  
-        },  
-
-        body: JSON.stringify({  
-            reference: reference  
-        })  
-    }  
-);  
-
-const responseText =  
-    await response.text();  
-
-let data;  
-
-try {  
-    data = JSON.parse(responseText);  
-} catch {  
-    throw new Error(  
-        "Moneta verification returned invalid JSON."  
-    );  
-}  
-
-return data;
-
-}
-
-/*
-
-CREDIT VERIFIED PAYMENT
-
-*/
-
-async function creditVerifiedPayment(reference) {
-const client = await pool.connect();
-
-try {  
-    await client.query("BEGIN");  
-
-    /*  
-    Lock the payment row so two webhook/callback  
-    requests cannot credit it simultaneously.  
-    */  
-
-    const paymentResult = await client.query(  
-        `  
-        SELECT  
-            id,  
-            reference,  
-            email,  
-            amount_kobo,  
-            amount_naira,  
-            status  
-        FROM payments  
-        WHERE reference = $1  
-        FOR UPDATE  
-        `,  
-        [reference]  
-    );  
-
-    if (paymentResult.rows.length === 0) {  
-        throw new Error(  
-            "Payment reference was not found."  
-        );  
-    }  
-
-    const payment =  
-        paymentResult.rows[0];  
-
-    /*  
-    Already credited = do nothing.  
-    */  
-
-    if (payment.status === "completed") {  
-        await client.query("COMMIT");  
-
-        return {  
-            success: true,  
-            alreadyCredited: true,  
-            message: "Payment was already credited."  
-        };  
-    }  
-
-    /*  
-    Get fresh verification from Moneta.  
-    */  
-
-    const verification =  
-        await verifyMonetaTransaction(  
-            reference  
-        );  
-
-    console.log(  
-        "MONETA VERIFY RESPONSE:",  
-        JSON.stringify(verification)  
-    );  
-
-    const providerStatus = String(  
-        verification?.data?.status ||  
-        verification?.status ||  
-        ""  
-    ).toLowerCase();  
-
-    /*  
-    Only completed/success/paid transactions  
-    are allowed to credit the balance.  
-    */  
-
-    const successfulStatuses = [  
-        "completed",  
-        "success",  
-        "successful",  
-        "paid"  
-    ];  
-
-    if (  
-        !successfulStatuses.includes(  
-            providerStatus  
-        )  
-    ) {  
-        await client.query(  
-            `  
-            UPDATE payments  
-            SET status = $1,  
-                updated_at = NOW()  
-            WHERE reference = $2  
-            `,  
-            [  
-                providerStatus || "pending",  
-                reference  
-            ]  
-        );  
-
-        await client.query("COMMIT");  
-
-        return {  
-            success: false,  
-            credited: false,  
-            status:  
-                providerStatus || "pending",  
-            message:  
-                "Payment has not been confirmed yet."  
-        };  
-    }  
-
-    /*  
-    Credit the exact amount that was stored when  
-    the payment was initialized.  
-
-    This prevents a client/browser from changing  
-    the amount during the payment process.  
-    */  
-
-    const amountNaira =  
-        Number(payment.amount_naira);  
-
-    const userResult =  
-        await client.query(  
-            `  
-            UPDATE users  
-            SET balance = balance + $1  
-            WHERE LOWER(email) = LOWER($2)  
-            RETURNING  
-                id,  
-                name,  
-                email,  
-                balance,  
-                vip_level  
-            `,  
-            [  
-                amountNaira,  
-                payment.email  
-            ]  
-        );  
-
-    if (userResult.rows.length === 0) {  
-        throw new Error(  
-            "User account for payment was not found."  
-        );  
-    }  
-
-    const user =  
-        userResult.rows[0];  
-
-    /*  
-    Mark payment completed.  
-    */  
-
-    await client.query(  
-        `  
-        UPDATE payments  
-        SET status = 'completed',  
-            updated_at = NOW()  
-        WHERE reference = $1  
-        `,  
-        [reference]  
-    );  
-
-    /*  
-    Record the deposit transaction.  
-    */  
-
-    await client.query(  
-        `  
-        INSERT INTO transactions  
-        (  
-            email,  
-            type,  
-            amount,  
-            reference,  
-            description  
-        )  
-        VALUES  
-        ($1, 'deposit', $2, $3, 'Moneta deposit')  
-        `,  
-        [  
-            payment.email,  
-            amountNaira,  
-            reference  
-        ]  
-    );  
-
-    await client.query("COMMIT");  
-
-    return {  
-        success: true,  
-        credited: true,  
-        amount: amountNaira,  
-        balance: Number(user.balance || 0),  
-        email: user.email  
-    };  
-
-} catch (error) {  
-    await client.query("ROLLBACK");  
-
-    console.error(  
-        "CREDIT PAYMENT ERROR:",  
-        error  
-    );  
-
-    throw error;  
-
-} finally {  
-    client.release();  
-}
-
-}
-
-/*
-
-MANUAL VERIFY ENDPOINT
-
-*/
-
-app.post("/verify-payment", async (req, res) => {
-try {
-const reference =
-String(req.body.reference || "")
-.trim();
-
-if (!reference) {  
-        return res.status(400).json({  
-            success: false,  
-            message: "Payment reference is required."  
-        });  
-    }  
-
-    const result =  
-        await creditVerifiedPayment(  
-            reference  
-        );  
-
-    res.json(result);  
-
-} catch (error) {  
-    console.error(  
-        "VERIFY PAYMENT ERROR:",  
-        error  
-    );  
-
-    res.status(500).json({  
-        success: false,  
-        message:  
-            "Unable to verify payment."  
-    });  
-}
-
-});
-
-/*
-
-MONETA CALLBACK
-
-*/
+/* =========================================================
+   MONETA CALLBACK
+========================================================= */
 
 app.get("/payment-callback", async (req, res) => {
-try {
-const reference =
-String(
-req.query.reference ||
-req.query.txnref ||
-""
-).trim();
+  try {
+    const reference =
+      String(
+        req.query.reference ||
+        req.query.txnref ||
+        req.query.trxref ||
+        ""
+      ).trim();
 
-if (!reference) {  
-        return res.status(400).send(`  
-            <html>  
-            <body style="font-family:Arial;text-align:center;padding:40px">  
-                <h2>Payment reference missing</h2>  
-                <p>Please return to Zavero.</p>  
-            </body>  
-            </html>  
-        `);  
-    }  
+    if (!reference) {
+      return res.redirect(
+        `${FRONTEND_URL}/?payment=failed`
+      );
+    }
 
-    const result =  
-        await creditVerifiedPayment(  
-            reference  
-        );  
+    const result =
+      await creditVerifiedPayment(
+        reference
+      );
 
-    if (result.credited || result.alreadyCredited) {  
-        return res.send(`  
-            <html>  
-            <head>  
-                <meta name="viewport"  
-                      content="width=device-width, initial-scale=1">  
-            </head>  
-            <body style="  
-                font-family:Arial;  
-                text-align:center;  
-                padding:40px;  
-                background:#090a24;  
-                color:white;  
-            ">  
-                <h2>Payment Confirmed</h2>  
-                <p>Your Zavero balance has been updated.</p>  
-                <p>You can return to Zavero.</p>  
-            </body>  
-            </html>  
-        `);  
-    }  
+    if (result.success) {
+      return res.redirect(
+        `${FRONTEND_URL}/?payment=success&reference=${encodeURIComponent(
+          reference
+        )}`
+      );
+    }
 
-    return res.send(`  
-        <html>  
-        <head>  
-            <meta name="viewport"  
-                  content="width=device-width, initial-scale=1">  
-        </head>  
-        <body style="  
-            font-family:Arial;  
-            text-align:center;  
-            padding:40px;  
-            background:#090a24;  
-            color:white;  
-        ">  
-            <h2>Payment Processing</h2>  
-            <p>Your payment has not been confirmed yet.</p>  
-            <p>Please return to Zavero and check your balance shortly.</p>  
-        </body>  
-        </html>  
-    `);  
+    return res.redirect(
+      `${FRONTEND_URL}/?payment=pending&reference=${encodeURIComponent(
+        reference
+      )}`
+    );
 
-} catch (error) {  
-    console.error(  
-        "PAYMENT CALLBACK ERROR:",  
-        error  
-    );  
+  } catch (error) {
+    console.error(
+      "PAYMENT CALLBACK ERROR:",
+      error
+    );
 
-    res.status(500).send(`  
-        <html>  
-        <body style="font-family:Arial;text-align:center;padding:40px">  
-            <h2>Payment verification error</h2>  
-            <p>Please return to Zavero and try again.</p>  
-        </body>  
-        </html>  
-    `);  
-}
+    const reference =
+      String(
+        req.query.reference ||
+        req.query.txnref ||
+        ""
+      ).trim();
 
+    return res.redirect(
+      `${FRONTEND_URL}/?payment=error${
+        reference
+          ? `&reference=${encodeURIComponent(reference)}`
+          : ""
+      }`
+    );
+  }
 });
 
-/*
 
-MONETA WEBHOOK
-
-*/
-
-/*
-IMPORTANT:
-We do NOT trust the webhook payload itself to credit
-money. We use the reference from the webhook and then
-ask Moneta's Verify API to confirm it.
-*/
+/* =========================================================
+   MONETA WEBHOOK
+========================================================= */
 
 app.post(
-"/moneta-webhook",
-express.raw({ type: "application/json" }),
-async (req, res) => {
-try {
-const rawBody =
-req.body.toString("utf8");
+  "/moneta-webhook",
+  express.raw({
+    type: "application/json"
+  }),
+  async (req, res) => {
+    try {
+      let payload;
 
-let payload;  
+      if (Buffer.isBuffer(req.body)) {
+        payload =
+          JSON.parse(
+            req.body.toString("utf8")
+          );
+      } else {
+        payload = req.body;
+      }
 
-        try {  
-            payload =  
-                JSON.parse(rawBody);  
-        } catch {  
-            return res.status(400).json({  
-                success: false,  
-                message: "Invalid webhook JSON."  
-            });  
-        }  
+      console.log(
+        "MONETA WEBHOOK:",
+        JSON.stringify(payload)
+      );
 
-        console.log(  
-            "MONETA WEBHOOK:",  
-            JSON.stringify(payload)  
-        );  
+      const reference =
+        payload?.reference ||
+        payload?.txnref ||
+        payload?.data?.reference ||
+        payload?.data?.txnref;
 
-        const reference =  
-            String(  
-                payload?.data?.reference ||  
-                ""  
-            ).trim();  
+      if (reference) {
+        await creditVerifiedPayment(
+          String(reference)
+        );
+      }
 
-        if (!reference) {  
-            return res.status(200).json({  
-                success: true,  
-                message:  
-                    "Webhook received without a transaction reference."  
-            });  
-        }  
+      res.status(200).json({
+        success: true
+      });
 
-        /*  
-        Verify directly with Moneta before crediting.  
-        */  
+    } catch (error) {
+      console.error(
+        "WEBHOOK ERROR:",
+        error
+      );
 
-        const result =  
-            await creditVerifiedPayment(  
-                reference  
-            );  
+      /*
+        Return 200 so a malformed/repeated webhook
+        does not cause endless retries.
+      */
 
-        res.status(200).json({  
-            success: true,  
-            processed: result.success,  
-            reference: reference  
-        });  
-
-    } catch (error) {  
-        console.error(  
-            "MONETA WEBHOOK ERROR:",  
-            error  
-        );  
-
-        /*  
-        Return 200 only if you intentionally want  
-        Moneta to consider the webhook delivered.  
-        */  
-
-        res.status(500).json({  
-            success: false,  
-            message: "Webhook processing failed."  
-        });  
-    }  
-}
-
+      res.status(200).json({
+        success: false
+      });
+    }
+  }
 );
 
-/*
 
-BUY VIP
-
-*/
-
-async function buyVip(email, vipLevel) {
-const plan =
-VIP_PLANS[vipLevel];
-
-if (!plan) {  
-    throw new Error(  
-        "Invalid VIP level."  
-    );  
-}  
-
-const client =  
-    await pool.connect();  
-
-try {  
-    await client.query("BEGIN");  
-
-    const result =  
-        await client.query(  
-            `  
-            SELECT  
-                id,  
-                name,  
-                email,  
-                balance,  
-                vip_level  
-            FROM users  
-            WHERE LOWER(email) = LOWER($1)  
-            FOR UPDATE  
-            `,  
-            [email]  
-        );  
-
-    if (result.rows.length === 0) {  
-        throw new Error(  
-            "User account was not found."  
-        );  
-    }  
-
-    const user =  
-        result.rows[0];  
-
-    const balance =  
-        Number(user.balance || 0);  
-
-    if (balance < plan.price) {  
-        await client.query("ROLLBACK");  
-
-        return {  
-            success: false,  
-            message:  
-                "Insufficient Zavero balance.",  
-            balance: balance,  
-            required: plan.price  
-        };  
-    }  
-
-    const newBalance =  
-        balance - plan.price;  
-
-    const updated =  
-        await client.query(  
-            `  
-            UPDATE users  
-            SET  
-                balance = $1,  
-                vip_level = $2  
-            WHERE id = $3  
-            RETURNING  
-                name,  
-                email,  
-                balance,  
-                vip_level  
-            `,  
-            [  
-                newBalance,  
-                vipLevel,  
-                user.id  
-            ]  
-        );  
-
-    await client.query(  
-        `  
-        INSERT INTO transactions  
-        (  
-            email,  
-            type,  
-            amount,  
-            reference,  
-            description  
-        )  
-        VALUES  
-        ($1, 'vip_purchase', $2, $3, $4)  
-        `,  
-        [  
-            email,  
-            plan.price,  
-            `VIP-${Date.now()}`,  
-            `VIP ${vipLevel} purchase`  
-        ]  
-    );  
-
-    await client.query("COMMIT");  
-
-    return {  
-        success: true,  
-        message:  
-            `VIP ${vipLevel} purchased successfully.`,  
-        balance:  
-            Number(updated.rows[0].balance || 0),  
-        vip_level:  
-            Number(updated.rows[0].vip_level || 0),  
-        price: plan.price  
-    };  
-
-} catch (error) {  
-    await client.query("ROLLBACK");  
-    throw error;  
-} finally {  
-    client.release();  
-}
-
-}
-
-app.post("/buy-vip", async (req, res) => {
-try {
-const email =
-String(req.body.email || "")
-.trim()
-.toLowerCase();
-
-const vipLevel =  
-        Number(req.body.vip_level);  
-
-    if (!email) {  
-        return res.status(400).json({  
-            success: false,  
-            message: "Email is required."  
-        });  
-    }  
-
-    if (!Number.isInteger(vipLevel)) {  
-        return res.status(400).json({  
-            success: false,  
-            message: "Invalid VIP level."  
-        });  
-    }  
-
-    const result =  
-        await buyVip(  
-            email,  
-            vipLevel  
-        );  
-
-    res.json(result);  
-
-} catch (error) {  
-    console.error(  
-        "BUY VIP ERROR:",  
-        error  
-    );  
-
-    res.status(500).json({  
-        success: false,  
-        message:  
-            "Unable to purchase VIP."  
-    });  
-}
-
-});
-
-/*
-
-ALIAS FOR OLDER FRONTEND
-
-*/
+/* =========================================================
+   VIP UPGRADE
+========================================================= */
 
 app.post("/upgrade-vip", async (req, res) => {
-try {
-const email =
-String(req.body.email || "")
-.trim()
-.toLowerCase();
+  try {
+    const {
+      email,
+      level
+    } = req.body;
 
-const vipLevel =  
-        Number(  
-            req.body.vip_level ||  
-            req.body.level  
-        );  
+    const vipLevel =
+      Number(level);
 
-    if (!email || !Number.isInteger(vipLevel)) {  
-        return res.status(400).json({  
-            success: false,  
-            message:  
-                "Email and VIP level are required."  
-        });  
-    }  
+    if (!email || !VIP_PLANS[vipLevel]) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid VIP request."
+      });
+    }
 
-    const result =  
-        await buyVip(  
-            email,  
-            vipLevel  
-        );  
+    const cleanEmail =
+      String(email)
+        .trim()
+        .toLowerCase();
 
-    res.json(result);  
+    const plan =
+      VIP_PLANS[vipLevel];
 
-} catch (error) {  
-    console.error(  
-        "UPGRADE VIP ERROR:",  
-        error  
-    );  
+    const client =
+      await pool.connect();
 
-    res.status(500).json({  
-        success: false,  
-        message:  
-            "Unable to upgrade VIP."  
-    });  
-}
+    try {
+      await client.query("BEGIN");
 
+      const result =
+        await client.query(
+          `
+          SELECT balance, vip_level
+          FROM users
+          WHERE email = $1
+          FOR UPDATE
+          `,
+          [cleanEmail]
+        );
+
+      if (result.rows.length === 0) {
+        await client.query("ROLLBACK");
+
+        return res.status(404).json({
+          success: false,
+          message: "User not found."
+        });
+      }
+
+      const user =
+        result.rows[0];
+
+      const balance =
+        Number(user.balance || 0);
+
+      if (balance < plan.price) {
+        await client.query("ROLLBACK");
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "Insufficient wallet balance."
+        });
+      }
+
+      if (vipLevel <= Number(user.vip_level || 0)) {
+        await client.query("ROLLBACK");
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "You already have this VIP level or higher."
+        });
+      }
+
+      await client.query(
+        `
+        UPDATE users
+        SET
+          balance = balance - $1,
+          vip_level = $2,
+          last_vip_claim = NULL
+        WHERE email = $3
+        `,
+        [
+          plan.price,
+          vipLevel,
+          cleanEmail
+        ]
+      );
+
+      await client.query(
+        `
+        INSERT INTO transactions
+        (email, type, amount, reference, description)
+        VALUES
+        ($1, 'vip_purchase', $2, $3, $4)
+        `,
+        [
+          cleanEmail,
+          plan.price,
+          createTransactionReference(),
+          `VIP ${vipLevel} upgrade`
+        ]
+      );
+
+      await client.query("COMMIT");
+
+      res.json({
+        success: true,
+        message:
+          `VIP ${vipLevel} activated successfully.`,
+        vip_level: vipLevel
+      });
+
+    } catch (error) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {}
+
+      throw error;
+
+    } finally {
+      client.release();
+    }
+
+  } catch (error) {
+    console.error(
+      "VIP UPGRADE ERROR:",
+      error
+    );
+
+    res.status(500).json({
+      success: false,
+      message:
+        "Unable to upgrade VIP."
+    });
+  }
 });
 
-/*
 
-CLAIM VIP DAILY REWARD
-
-*/
+/* =========================================================
+   CLAIM VIP DAILY REWARD
+========================================================= */
 
 app.post("/claim-vip", async (req, res) => {
-const client =
-await pool.connect();
+  try {
+    const { email } = req.body;
 
-try {  
-    const email =  
-        String(req.body.email || "")  
-            .trim()  
-            .toLowerCase();  
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required."
+      });
+    }
 
-    if (!email) {  
-        return res.status(400).json({  
-            success: false,  
-            message: "Email is required."  
-        });  
-    }  
+    const cleanEmail =
+      String(email)
+        .trim()
+        .toLowerCase();
 
-    await client.query("BEGIN");  
+    const client =
+      await pool.connect();
 
-    const result =  
-        await client.query(  
-            `  
-            SELECT  
-                id,  
-                email,  
-                balance,  
-                vip_level,  
-                last_vip_claim  
-            FROM users  
-            WHERE LOWER(email) = LOWER($1)  
-            FOR UPDATE  
-            `,  
-            [email]  
-        );  
+    try {
+      await client.query("BEGIN");
 
-    if (result.rows.length === 0) {  
-        await client.query("ROLLBACK");  
+      const result =
+        await client.query(
+          `
+          SELECT
+            balance,
+            vip_level,
+            last_vip_claim
+          FROM users
+          WHERE email = $1
+          FOR UPDATE
+          `,
+          [cleanEmail]
+        );
 
-        return res.status(404).json({  
-            success: false,  
-            message: "User not found."  
-        });  
-    }  
+      if (result.rows.length === 0) {
+        await client.query("ROLLBACK");
 
-    const user =  
-        result.rows[0];  
+        return res.status(404).json({
+          success: false,
+          message: "User not found."
+        });
+      }
 
-    const vipLevel =  
-        Number(user.vip_level || 0);  
+      const user =
+        result.rows[0];
 
-    if (!VIP_PLANS[vipLevel]) {  
-        await client.query("ROLLBACK");  
+      const vipLevel =
+        Number(user.vip_level || 0);
 
-        return res.status(400).json({  
-            success: false,  
-            message:  
-                "You need to purchase a VIP plan first."  
-        });  
-    }  
+      if (!VIP_PLANS[vipLevel]) {
+        await client.query("ROLLBACK");
 
-    const now = new Date();  
+        return res.status(400).json({
+          success: false,
+          message:
+            "You do not have an active VIP plan."
+        });
+      }
 
-    if (user.last_vip_claim) {  
-        const lastClaim =  
-            new Date(user.last_vip_claim);  
+      if (user.last_vip_claim) {
+        const lastClaim =
+          new Date(user.last_vip_claim);
 
-        const hours =  
-            (now - lastClaim) /  
-            (1000 * 60 * 60);  
+        const now =
+          new Date();
 
-        if (hours < 24) {  
-            await client.query("ROLLBACK");  
+        const hours =
+          (now - lastClaim) /
+          (1000 * 60 * 60);
 
-            return res.json({  
-                success: false,  
-                message:  
-                    "Your daily VIP reward has already been claimed.",  
-                nextClaimInHours:  
-                    Number((24 - hours).toFixed(2))  
-            });  
-        }  
-    }  
+        if (hours < 24) {
+          await client.query("ROLLBACK");
 
-    const reward =  
-        VIP_PLANS[vipLevel].dailyReward;  
+          return res.status(400).json({
+            success: false,
+            message:
+              "Your next VIP reward is not available yet.",
+            nextClaimInHours:
+              Number(
+                (24 - hours).toFixed(2)
+              )
+          });
+        }
+      }
 
-    const newBalance =  
-        Number(user.balance || 0) +  
-        reward;  
+      const reward =
+        VIP_PLANS[vipLevel].dailyReward;
 
-    const updated =  
-        await client.query(  
-            `  
-            UPDATE users  
-            SET  
-                balance = $1,  
-                last_vip_claim = NOW()  
-            WHERE id = $2  
-            RETURNING balance  
-            `,  
-            [  
-                newBalance,  
-                user.id  
-            ]  
-        );  
+      await client.query(
+        `
+        UPDATE users
+        SET
+          balance = balance + $1,
+          last_vip_claim = NOW()
+        WHERE email = $2
+        `,
+        [
+          reward,
+          cleanEmail
+        ]
+      );
 
-    await client.query(  
-        `  
-        INSERT INTO transactions  
-        (  
-            email,  
-            type,  
-            amount,  
-            reference,  
-            description  
-        )  
-        VALUES  
-        ($1, 'vip_reward', $2, $3, $4)  
-        `,  
-        [  
-            email,  
-            reward,  
-            `REWARD-${Date.now()}`,  
-            `VIP ${vipLevel} daily reward`  
-        ]  
-    );  
+      await client.query(
+        `
+        INSERT INTO transactions
+        (email, type, amount, reference, description)
+        VALUES
+        ($1, 'vip_reward', $2, $3, $4)
+        `,
+        [
+          cleanEmail,
+          reward,
+          createTransactionReference(),
+          `VIP ${vipLevel} daily reward`
+        ]
+      );
 
-    await client.query("COMMIT");  
+      await client.query("COMMIT");
 
-    res.json({  
-        success: true,  
-        message:  
-            "Daily VIP reward claimed successfully.",  
-        reward: reward,  
-        balance:  
-            Number(updated.rows[0].balance || 0),  
-        vip_level: vipLevel  
-    });  
+      res.json({
+        success: true,
+        message:
+          `₦${reward.toLocaleString()} VIP reward claimed.`,
+        reward: reward
+      });
 
-} catch (error) {  
-    await client.query("ROLLBACK");  
+    } catch (error) {
+      try {
+        await client.query("ROLLBACK");
+      } catch {}
 
-    console.error(  
-        "CLAIM VIP ERROR:",  
-        error  
-    );  
+      throw error;
 
-    res.status(500).json({  
-        success: false,  
-        message:  
-            "Unable to claim VIP reward."  
-    });  
+    } finally {
+      client.release();
+    }
 
-} finally {  
-    client.release();  
-}
+  } catch (error) {
+    console.error(
+      "VIP CLAIM ERROR:",
+      error
+    );
 
+    res.status(500).json({
+      success: false,
+      message:
+        "Unable to claim VIP reward."
+    });
+  }
 });
 
-/*
 
-TRANSACTIONS
-
-*/
+/* =========================================================
+   TRANSACTIONS
+========================================================= */
 
 app.get("/transactions", async (req, res) => {
-try {
-const email =
-String(req.query.email || "")
-.trim()
-.toLowerCase();
+  try {
+    const email =
+      String(req.query.email || "")
+        .trim()
+        .toLowerCase();
 
-if (!email) {  
-        return res.status(400).json({  
-            success: false,  
-            message: "Email is required."  
-        });  
-    }  
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required."
+      });
+    }
 
-    const result =  
-        await pool.query(  
-            `  
-            SELECT  
-                type,  
-                amount,  
-                reference,  
-                description,  
-                created_at  
-            FROM transactions  
-            WHERE LOWER(email) = LOWER($1)  
-            ORDER BY created_at DESC  
-            LIMIT 100  
-            `,  
-            [email]  
-        );  
+    const result =
+      await pool.query(
+        `
+        SELECT
+          id,
+          type,
+          amount,
+          reference,
+          description,
+          created_at
+        FROM transactions
+        WHERE email = $1
+        ORDER BY created_at DESC
+        LIMIT 100
+        `,
+        [email]
+      );
 
-    res.json({  
-        success: true,  
-        transactions:  
-            result.rows  
-    });  
+    res.json({
+      success: true,
+      transactions: result.rows
+    });
 
-} catch (error) {  
-    console.error(  
-        "TRANSACTIONS ERROR:",  
-        error  
-    );  
+  } catch (error) {
+    console.error(
+      "TRANSACTIONS ERROR:",
+      error
+    );
 
-    res.status(500).json({  
-        success: false,  
-        message:  
-            "Unable to load transactions."  
-    });  
+    res.status(500).json({
+      success: false,
+      message:
+        "Unable to load transactions."
+    });
+  }
+});
+
+
+/* =========================================================
+   START SERVER
+========================================================= */
+
+async function startServer() {
+  try {
+    await setupDatabase();
+
+    app.listen(PORT, () => {
+      console.log(
+        `Zavero server running on port ${PORT}`
+      );
+
+      console.log(
+        `SITE_URL: ${SITE_URL}`
+      );
+
+      console.log(
+        `MONETA_BASE_URL: ${MONETA_BASE_URL}`
+      );
+    });
+
+  } catch (error) {
+    console.error(
+      "SERVER START ERROR:",
+      error
+    );
+
+    process.exit(1);
+  }
 }
 
-});
-
-/*
-
-PAYMENT STATUS
-
-*/
-
-app.get("/payment-status", async (req, res) => {
-try {
-const reference =
-String(req.query.reference || "")
-.trim();
-
-if (!reference) {  
-        return res.status(400).json({  
-            success: false,  
-            message: "Reference is required."  
-        });  
-    }  
-
-    const result =  
-        await pool.query(  
-            `  
-            SELECT  
-                reference,  
-                email,  
-                amount_naira,  
-                status,  
-                created_at,  
-                updated_at  
-            FROM payments  
-            WHERE reference = $1  
-            LIMIT 1  
-            `,  
-            [reference]  
-        );  
-
-    if (result.rows.length === 0) {  
-        return res.status(404).json({  
-            success: false,  
-            message: "Payment not found."  
-        });  
-    }  
-
-    res.json({  
-        success: true,  
-        payment: result.rows[0]  
-    });  
-
-} catch (error) {  
-    console.error(  
-        "PAYMENT STATUS ERROR:",  
-        error  
-    );  
-
-    res.status(500).json({  
-        success: false,  
-        message:  
-            "Unable to check payment status."  
-    });  
-}
-
-});
-
-/*
-
-START SERVER
-
-*/
-
-setupDatabase()
-.then(() => {
-app.listen(PORT, () => {
-console.log(
-Zavero server running on port ${PORT}
-);
-
-console.log(  
-            `Moneta production URL: ${MONETA_BASE_URL}`  
-        );  
-
-        console.log(  
-            `Site URL: ${SITE_URL}`  
-        );  
-    });  
-})  
-.catch((error) => {  
-    console.error(  
-        "DATABASE STARTUP ERROR:",  
-        error  
-    );  
-
-    process.exit(1);  
-});
+startServer();
