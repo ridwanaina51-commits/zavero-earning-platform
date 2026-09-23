@@ -163,7 +163,10 @@ async function setupDatabase() {
             created_at TIMESTAMP DEFAULT NOW()
         );
     `);
-
+await pool.query(`
+    ALTER TABLE payments
+    ADD COLUMN IF NOT EXISTS payment_type TEXT;
+`);
 
     await pool.query(`
         CREATE TABLE IF NOT EXISTS payments (
