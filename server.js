@@ -14,6 +14,14 @@ const SITE_URL =
 const COMMUNITY_REWARD = 400;
 const REFERRAL_REWARD = 500;
 
+const MIN_WITHDRAWAL = 5000;
+
+/*
+==================================================
+VIP PLANS
+==================================================
+*/
+
 const VIP_PLANS = {
   1: {
     name: "VIP 1",
@@ -46,6 +54,12 @@ const VIP_PLANS = {
     dailyReward: 15000
   }
 };
+
+/*
+==================================================
+DATABASE
+==================================================
+*/
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -93,7 +107,9 @@ async function setupDatabase() {
   }
 
   /*
+  ==================================================
   USERS
+  ==================================================
   */
 
   await pool.query(`
@@ -109,10 +125,6 @@ async function setupDatabase() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
-
-  /*
-  Make sure older databases receive the newer columns.
-  */
 
   await pool.query(`
     ALTER TABLE users
@@ -140,7 +152,9 @@ async function setupDatabase() {
   `);
 
   /*
+  ==================================================
   PAYMENTS
+  ==================================================
   */
 
   await pool.query(`
@@ -194,7 +208,9 @@ async function setupDatabase() {
   `);
 
   /*
+  ==================================================
   TRANSACTIONS
+  ==================================================
   */
 
   await pool.query(`
@@ -230,8 +246,9 @@ async function setupDatabase() {
   `);
 
   /*
+  ==================================================
   COMMUNITY REWARDS
-  One user can only have one community reward.
+  ==================================================
   */
 
   await pool.query(`
@@ -245,8 +262,9 @@ async function setupDatabase() {
   `);
 
   /*
+  ==================================================
   REFERRAL REWARDS
-  One referred user can generate only one referral reward.
+  ==================================================
   */
 
   await pool.query(`
@@ -258,6 +276,72 @@ async function setupDatabase() {
       status TEXT NOT NULL DEFAULT 'paid',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `);
+
+  /*
+  ==================================================
+  WITHDRAWALS
+  ==================================================
+  */
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS withdrawals (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      amount NUMERIC(14,2) NOT NULL,
+      bank_name TEXT NOT NULL,
+      account_name TEXT NOT NULL,
+      account_number TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      rejection_reason TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      reviewed_at TIMESTAMPTZ
+    )
+  `);
+
+  await pool.query(`
+    ALTER TABLE withdrawals
+    ADD COLUMN IF NOT EXISTS user_id INTEGER
+  `);
+
+  await pool.query(`
+    ALTER TABLE withdrawals
+    ADD COLUMN IF NOT EXISTS amount NUMERIC(14,2)
+  `);
+
+  await pool.query(`
+    ALTER TABLE withdrawals
+    ADD COLUMN IF NOT EXISTS bank_name TEXT
+  `);
+
+  await pool.query(`
+    ALTER TABLE withdrawals
+    ADD COLUMN IF NOT EXISTS account_name TEXT
+  `);
+
+  await pool.query(`
+    ALTER TABLE withdrawals
+    ADD COLUMN IF NOT EXISTS account_number TEXT
+  `);
+
+  await pool.query(`
+    ALTER TABLE withdrawals
+    ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending'
+  `);
+
+  await pool.query(`
+    ALTER TABLE withdrawals
+    ADD COLUMN IF NOT EXISTS rejection_reason TEXT
+  `);
+
+  await pool.query(`
+    ALTER TABLE withdrawals
+    ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  `);
+
+  await pool.query(`
+    ALTER TABLE withdrawals
+    ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ
   `);
 
   console.log("Zavero database setup completed.");
@@ -348,6 +432,87 @@ function getVIPLevelFromAmount(amount) {
 
 /*
 ==================================================
+NIGERIA WITHDRAWAL TIME
+==================================================
+
+Nigeria uses Africa/Lagos time.
+
+Sunday:
+10:00 AM - 5:00 PM
+
+The withdrawal window closes at exactly 5:00 PM.
+*/
+
+function getNigeriaDateParts() {
+  const parts = new Intl.DateTimeFormat(
+    "en-US",
+    {
+      timeZone: "Africa/Lagos",
+      weekday: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    }
+  ).formatToParts(new Date());
+
+  const result = {};
+
+  for (const part of parts) {
+    if (part.type !== "literal") {
+      result[part.type] = part.value;
+    }
+  }
+
+  let hour = Number(result.hour);
+  const minute = Number(result.minute);
+
+  /*
+  Some environments can return 24 for midnight.
+  Convert it to 0.
+  */
+
+  if (hour === 24) {
+    hour = 0;
+  }
+
+  return {
+    weekday: result.weekday,
+    hour,
+    minute
+  };
+}
+
+function isWithdrawalWindowOpen() {
+  const nigeria = getNigeriaDateParts();
+
+  /*
+  Sunday only.
+  */
+
+  if (nigeria.weekday !== "Sun") {
+    return false;
+  }
+
+  const totalMinutes =
+    nigeria.hour * 60 +
+    nigeria.minute;
+
+  /*
+  10:00 AM = 600 minutes
+  5:00 PM = 1020 minutes
+
+  Open from 600 inclusive
+  until 1020 exclusive.
+  */
+
+  return (
+    totalMinutes >= 600 &&
+    totalMinutes < 1020
+  );
+}
+
+/*
+==================================================
 ROOT
 ==================================================
 */
@@ -388,35 +553,34 @@ app.post("/signup", async (req, res) => {
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
-        message: "Name, email and password are required."
+        message:
+          "Name, email and password are required."
       });
     }
 
     if (password.length < 6) {
       return res.status(400).json({
         success: false,
-        message: "Password must be at least 6 characters."
+        message:
+          "Password must be at least 6 characters."
       });
     }
 
     const existing = await pool.query(
-      `SELECT id FROM users WHERE LOWER(email) = $1 LIMIT 1`,
+      `SELECT id
+       FROM users
+       WHERE LOWER(email) = $1
+       LIMIT 1`,
       [email]
     );
 
     if (existing.rows.length > 0) {
       return res.status(400).json({
         success: false,
-        message: "An account with this email already exists."
+        message:
+          "An account with this email already exists."
       });
     }
-
-    /*
-    Referral code can be sent as:
-    referredBy
-    referred_by
-    referralCode
-    */
 
     const referralInput =
       req.body.referredBy ||
@@ -427,17 +591,19 @@ app.post("/signup", async (req, res) => {
     let referrerId = null;
 
     if (referralInput) {
-      const referrerResult = await pool.query(
-        `SELECT id
-         FROM users
-         WHERE id::text = $1
-            OR LOWER(email) = LOWER($1)
-         LIMIT 1`,
-        [String(referralInput).trim()]
-      );
+      const referrerResult =
+        await pool.query(
+          `SELECT id
+           FROM users
+           WHERE id::text = $1
+              OR LOWER(email) = LOWER($1)
+           LIMIT 1`,
+          [String(referralInput).trim()]
+        );
 
       if (referrerResult.rows.length > 0) {
-        referrerId = referrerResult.rows[0].id;
+        referrerId =
+          referrerResult.rows[0].id;
       }
     }
 
@@ -461,21 +627,27 @@ app.post("/signup", async (req, res) => {
 
     res.json({
       success: true,
-      message: "Account created successfully.",
+      message:
+        "Account created successfully.",
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
         balance: Number(user.balance),
-        vip_level: Number(user.vip_level)
+        vip_level:
+          Number(user.vip_level)
       }
     });
   } catch (error) {
-    console.error("SIGNUP ERROR:", error);
+    console.error(
+      "SIGNUP ERROR:",
+      error
+    );
 
     res.status(500).json({
       success: false,
-      message: "Unable to create account."
+      message:
+        "Unable to create account."
     });
   }
 });
@@ -488,13 +660,17 @@ LOGIN
 
 app.post("/login", async (req, res) => {
   try {
-    const email = normalizeEmail(req.body.email);
-    const password = String(req.body.password || "");
+    const email =
+      normalizeEmail(req.body.email);
+
+    const password =
+      String(req.body.password || "");
 
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: "Email and password are required."
+        message:
+          "Email and password are required."
       });
     }
 
@@ -517,7 +693,8 @@ app.post("/login", async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(401).json({
         success: false,
-        message: "Invalid email or password."
+        message:
+          "Invalid email or password."
       });
     }
 
@@ -532,29 +709,39 @@ app.post("/login", async (req, res) => {
     if (!valid) {
       return res.status(401).json({
         success: false,
-        message: "Invalid email or password."
+        message:
+          "Invalid email or password."
       });
     }
 
     res.json({
       success: true,
-      message: "Login successful.",
+      message:
+        "Login successful.",
       user: {
         id: user.id,
         name: user.name,
         email: user.email,
-        balance: Number(user.balance),
-        vip_level: Number(user.vip_level),
-        last_vip_claim: user.last_vip_claim,
-        referred_by: user.referred_by
+        balance:
+          Number(user.balance),
+        vip_level:
+          Number(user.vip_level),
+        last_vip_claim:
+          user.last_vip_claim,
+        referred_by:
+          user.referred_by
       }
     });
   } catch (error) {
-    console.error("LOGIN ERROR:", error);
+    console.error(
+      "LOGIN ERROR:",
+      error
+    );
 
     res.status(500).json({
       success: false,
-      message: "Unable to login."
+      message:
+        "Unable to login."
     });
   }
 });
@@ -567,12 +754,14 @@ BALANCE
 
 app.get("/balance", async (req, res) => {
   try {
-    const email = normalizeEmail(req.query.email);
+    const email =
+      normalizeEmail(req.query.email);
 
     if (!email) {
       return res.status(400).json({
         success: false,
-        message: "Email is required."
+        message:
+          "Email is required."
       });
     }
 
@@ -594,7 +783,8 @@ app.get("/balance", async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "User not found."
+        message:
+          "User not found."
       });
     }
 
@@ -602,19 +792,27 @@ app.get("/balance", async (req, res) => {
 
     res.json({
       success: true,
-      balance: Number(user.balance),
-      vip_level: Number(user.vip_level),
-      last_vip_claim: user.last_vip_claim,
+      balance:
+        Number(user.balance),
+      vip_level:
+        Number(user.vip_level),
+      last_vip_claim:
+        user.last_vip_claim,
       name: user.name,
       email: user.email,
-      referred_by: user.referred_by
+      referred_by:
+        user.referred_by
     });
   } catch (error) {
-    console.error("BALANCE ERROR:", error);
+    console.error(
+      "BALANCE ERROR:",
+      error
+    );
 
     res.status(500).json({
       success: false,
-      message: "Unable to load balance."
+      message:
+        "Unable to load balance."
     });
   }
 });
@@ -654,126 +852,158 @@ SUBMIT VIP PAYMENT
 ==================================================
 */
 
-app.post("/submit-vip-payment", async (req, res) => {
-  try {
-    const email = normalizeEmail(req.body.email);
-    const vipLevel = Number(req.body.vipLevel);
-    const reference = String(
-      req.body.reference || ""
-    ).trim();
+app.post(
+  "/submit-vip-payment",
+  async (req, res) => {
+    try {
+      const email =
+        normalizeEmail(req.body.email);
 
-    if (!email || !vipLevel || !reference) {
-      return res.status(400).json({
-        success: false,
+      const vipLevel =
+        Number(req.body.vipLevel);
+
+      const reference =
+        String(
+          req.body.reference || ""
+        ).trim();
+
+      if (
+        !email ||
+        !vipLevel ||
+        !reference
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Email, VIP level and OPay transaction reference are required."
+        });
+      }
+
+      if (!VIP_PLANS[vipLevel]) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid VIP plan."
+        });
+      }
+
+      if (reference.length < 3) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Please enter a valid OPay transaction reference."
+        });
+      }
+
+      const userResult =
+        await pool.query(
+          `SELECT
+            id,
+            name,
+            email,
+            vip_level
+           FROM users
+           WHERE LOWER(email) = $1
+           LIMIT 1`,
+          [email]
+        );
+
+      if (
+        userResult.rows.length === 0
+      ) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "User not found."
+        });
+      }
+
+      const user =
+        userResult.rows[0];
+
+      const duplicateReference =
+        await pool.query(
+          `SELECT id
+           FROM payments
+           WHERE LOWER(reference) = LOWER($1)
+             AND status IN ('pending', 'approved')
+           LIMIT 1`,
+          [reference]
+        );
+
+      if (
+        duplicateReference.rows.length > 0
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "This OPay transaction reference has already been submitted."
+        });
+      }
+
+      if (
+        Number(user.vip_level) >=
+        vipLevel
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "You already have this VIP level or a higher VIP level."
+        });
+      }
+
+      const amount =
+        VIP_PLANS[vipLevel].price;
+
+      const result =
+        await pool.query(
+          `INSERT INTO payments
+           (
+             user_id,
+             amount,
+             reference,
+             payment_type,
+             vip_level,
+             status
+           )
+           VALUES
+           ($1, $2, $3, 'vip', $4, 'pending')
+           RETURNING
+             id,
+             amount,
+             reference,
+             vip_level,
+             status,
+             created_at`,
+          [
+            user.id,
+            amount,
+            reference,
+            vipLevel
+          ]
+        );
+
+      res.json({
+        success: true,
         message:
-          "Email, VIP level and OPay transaction reference are required."
+          "VIP payment submitted. Please wait for moderator approval.",
+        payment:
+          result.rows[0]
       });
-    }
-
-    if (!VIP_PLANS[vipLevel]) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid VIP plan."
-      });
-    }
-
-    if (reference.length < 3) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Please enter a valid OPay transaction reference."
-      });
-    }
-
-    const userResult = await pool.query(
-      `SELECT id, name, email, vip_level
-       FROM users
-       WHERE LOWER(email) = $1
-       LIMIT 1`,
-      [email]
-    );
-
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found."
-      });
-    }
-
-    const user = userResult.rows[0];
-
-    /*
-    Prevent duplicate pending references.
-    */
-
-    const duplicateReference =
-      await pool.query(
-        `SELECT id
-         FROM payments
-         WHERE LOWER(reference) = LOWER($1)
-           AND status IN ('pending', 'approved')
-         LIMIT 1`,
-        [reference]
+    } catch (error) {
+      console.error(
+        "SUBMIT VIP PAYMENT ERROR:",
+        error
       );
 
-    if (duplicateReference.rows.length > 0) {
-      return res.status(400).json({
+      res.status(500).json({
         success: false,
         message:
-          "This OPay transaction reference has already been submitted."
+          "Unable to submit VIP payment."
       });
     }
-
-    /*
-    If user already has this VIP or higher,
-    do not submit another identical VIP request.
-    */
-
-    if (
-      Number(user.vip_level) >= vipLevel
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "You already have this VIP level or a higher VIP level."
-      });
-    }
-
-    const amount =
-      VIP_PLANS[vipLevel].price;
-
-    const result = await pool.query(
-      `INSERT INTO payments
-       (user_id, amount, reference, payment_type, vip_level, status)
-       VALUES ($1, $2, $3, 'vip', $4, 'pending')
-       RETURNING id, amount, reference, vip_level, status, created_at`,
-      [
-        user.id,
-        amount,
-        reference,
-        vipLevel
-      ]
-    );
-
-    res.json({
-      success: true,
-      message:
-        "VIP payment submitted. Please wait for moderator approval.",
-      payment: result.rows[0]
-    });
-  } catch (error) {
-    console.error(
-      "SUBMIT VIP PAYMENT ERROR:",
-      error
-    );
-
-    res.status(500).json({
-      success: false,
-      message:
-        "Unable to submit VIP payment."
-    });
   }
-});
+);
 
 /*
 ==================================================
@@ -781,54 +1011,64 @@ MY PAYMENTS
 ==================================================
 */
 
-app.get("/my-payments", async (req, res) => {
-  try {
-    const email = normalizeEmail(req.query.email);
+app.get(
+  "/my-payments",
+  async (req, res) => {
+    try {
+      const email =
+        normalizeEmail(req.query.email);
 
-    if (!email) {
-      return res.status(400).json({
+      if (!email) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Email is required."
+        });
+      }
+
+      const result =
+        await pool.query(
+          `SELECT
+            p.id,
+            p.amount,
+            p.reference,
+            p.payment_type,
+            p.vip_level,
+            p.status,
+            p.rejection_reason,
+            p.created_at,
+            p.approved_at
+           FROM payments p
+           JOIN users u
+             ON u.id = p.user_id
+           WHERE LOWER(u.email) = $1
+           ORDER BY p.created_at DESC`,
+          [email]
+        );
+
+      res.json({
+        success: true,
+        payments:
+          result.rows.map(p => ({
+            ...p,
+            amount:
+              Number(p.amount)
+          }))
+      });
+    } catch (error) {
+      console.error(
+        "MY PAYMENTS ERROR:",
+        error
+      );
+
+      res.status(500).json({
         success: false,
-        message: "Email is required."
+        message:
+          "Unable to load payment history."
       });
     }
-
-    const result = await pool.query(
-      `SELECT
-        p.id,
-        p.amount,
-        p.reference,
-        p.payment_type,
-        p.vip_level,
-        p.status,
-        p.rejection_reason,
-        p.created_at,
-        p.approved_at
-       FROM payments p
-       JOIN users u ON u.id = p.user_id
-       WHERE LOWER(u.email) = $1
-       ORDER BY p.created_at DESC`,
-      [email]
-    );
-
-    res.json({
-      success: true,
-      payments: result.rows.map(p => ({
-        ...p,
-        amount: Number(p.amount)
-      }))
-    });
-  } catch (error) {
-    console.error(
-      "MY PAYMENTS ERROR:",
-      error
-    );
-
-    res.status(500).json({
-      success: false,
-      message: "Unable to load payment history."
-    });
   }
-});
+);
 
 /*
 ==================================================
@@ -836,162 +1076,211 @@ CLAIM VIP DAILY REWARD
 ==================================================
 */
 
-app.post("/claim-vip", async (req, res) => {
-  try {
-    const email = normalizeEmail(req.body.email);
-
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: "Email is required."
-      });
-    }
-
-    const client = await pool.connect();
-
+app.post(
+  "/claim-vip",
+  async (req, res) => {
     try {
-      await client.query("BEGIN");
+      const email =
+        normalizeEmail(req.body.email);
 
-      const userResult = await client.query(
-        `SELECT
-          id,
-          balance,
-          vip_level,
-          last_vip_claim
-         FROM users
-         WHERE LOWER(email) = $1
-         FOR UPDATE`,
-        [email]
-      );
-
-      if (userResult.rows.length === 0) {
-        await client.query("ROLLBACK");
-
-        return res.status(404).json({
-          success: false,
-          message: "User not found."
-        });
-      }
-
-      const user = userResult.rows[0];
-
-      const vipLevel =
-        Number(user.vip_level);
-
-      if (
-        !vipLevel ||
-        !VIP_PLANS[vipLevel]
-      ) {
-        await client.query("ROLLBACK");
-
+      if (!email) {
         return res.status(400).json({
           success: false,
           message:
-            "You must activate a VIP before claiming a daily reward."
+            "Email is required."
         });
       }
 
-      if (user.last_vip_claim) {
-        const lastClaim =
-          new Date(user.last_vip_claim);
+      const client =
+        await pool.connect();
 
-        const now = new Date();
+      try {
+        await client.query("BEGIN");
 
-        const elapsed =
-          now.getTime() -
-          lastClaim.getTime();
+        const userResult =
+          await client.query(
+            `SELECT
+              id,
+              balance,
+              vip_level,
+              last_vip_claim
+             FROM users
+             WHERE LOWER(email) = $1
+             FOR UPDATE`,
+            [email]
+          );
 
-        const twentyFourHours =
-          24 * 60 * 60 * 1000;
+        if (
+          userResult.rows.length === 0
+        ) {
+          await client.query(
+            "ROLLBACK"
+          );
 
-        if (elapsed < twentyFourHours) {
-          const remaining =
-            twentyFourHours - elapsed;
+          return res.status(404).json({
+            success: false,
+            message:
+              "User not found."
+          });
+        }
 
-          const hours =
-            Math.floor(
-              remaining /
-                (60 * 60 * 1000)
-            );
+        const user =
+          userResult.rows[0];
 
-          const minutes =
-            Math.floor(
-              (remaining %
-                (60 * 60 * 1000)) /
-                (60 * 1000)
-            );
+        const vipLevel =
+          Number(user.vip_level);
 
-          await client.query("ROLLBACK");
+        if (
+          !vipLevel ||
+          !VIP_PLANS[vipLevel]
+        ) {
+          await client.query(
+            "ROLLBACK"
+          );
 
           return res.status(400).json({
             success: false,
             message:
-              `Your next VIP reward is available in ${hours}h ${minutes}m.`
+              "You must activate a VIP before claiming a daily reward."
           });
         }
+
+        if (user.last_vip_claim) {
+          const lastClaim =
+            new Date(
+              user.last_vip_claim
+            );
+
+          const now =
+            new Date();
+
+          const elapsed =
+            now.getTime() -
+            lastClaim.getTime();
+
+          const twentyFourHours =
+            24 *
+            60 *
+            60 *
+            1000;
+
+          if (
+            elapsed <
+            twentyFourHours
+          ) {
+            const remaining =
+              twentyFourHours -
+              elapsed;
+
+            const hours =
+              Math.floor(
+                remaining /
+                  (60 *
+                    60 *
+                    1000)
+              );
+
+            const minutes =
+              Math.floor(
+                (remaining %
+                  (60 *
+                    60 *
+                    1000)) /
+                  (60 * 1000)
+              );
+
+            await client.query(
+              "ROLLBACK"
+            );
+
+            return res.status(400).json({
+              success: false,
+              message:
+                `Your next VIP reward is available in ${hours}h ${minutes}m.`
+            });
+          }
+        }
+
+        const reward =
+          VIP_PLANS[vipLevel]
+            .dailyReward;
+
+        const newBalance =
+          Number(user.balance) +
+          Number(reward);
+
+        await client.query(
+          `UPDATE users
+           SET balance = $1,
+               last_vip_claim = NOW()
+           WHERE id = $2`,
+          [
+            newBalance,
+            user.id
+          ]
+        );
+
+        await client.query(
+          `INSERT INTO transactions
+           (
+             user_id,
+             amount,
+             type,
+             description,
+             reference
+           )
+           VALUES
+           (
+             $1,
+             $2,
+             'vip_reward',
+             $3,
+             $4
+           )`,
+          [
+            user.id,
+            reward,
+            `${VIP_PLANS[vipLevel].name} Daily Reward`,
+            `VIP-${user.id}-${Date.now()}`
+          ]
+        );
+
+        await client.query(
+          "COMMIT"
+        );
+
+        res.json({
+          success: true,
+          message:
+            `₦${Number(reward).toLocaleString()} VIP reward added to your wallet.`,
+          reward:
+            Number(reward),
+          balance:
+            newBalance
+        });
+      } catch (error) {
+        await client.query(
+          "ROLLBACK"
+        );
+
+        throw error;
+      } finally {
+        client.release();
       }
-
-      const reward =
-        VIP_PLANS[vipLevel]
-          .dailyReward;
-
-      const newBalance =
-        Number(user.balance) +
-        Number(reward);
-
-      await client.query(
-        `UPDATE users
-         SET balance = $1,
-             last_vip_claim = NOW()
-         WHERE id = $2`,
-        [
-          newBalance,
-          user.id
-        ]
-      );
-
-      await client.query(
-        `INSERT INTO transactions
-         (user_id, amount, type, description, reference)
-         VALUES
-         ($1, $2, 'vip_reward',
-          $3, $4)`,
-        [
-          user.id,
-          reward,
-          `${VIP_PLANS[vipLevel].name} Daily Reward`,
-          `VIP-${user.id}-${Date.now()}`
-        ]
-      );
-
-      await client.query("COMMIT");
-
-      res.json({
-        success: true,
-        message:
-          `₦${Number(reward).toLocaleString()} VIP reward added to your wallet.`,
-        reward: Number(reward),
-        balance: newBalance
-      });
     } catch (error) {
-      await client.query("ROLLBACK");
-      throw error;
-    } finally {
-      client.release();
-    }
-  } catch (error) {
-    console.error(
-      "CLAIM VIP ERROR:",
-      error
-    );
+      console.error(
+        "CLAIM VIP ERROR:",
+        error
+      );
 
-    res.status(500).json({
-      success: false,
-      message:
-        "Unable to claim VIP reward."
-    });
+      res.status(500).json({
+        success: false,
+        message:
+          "Unable to claim VIP reward."
+      });
+    }
   }
-});
+);
 
 /*
 ==================================================
@@ -999,53 +1288,62 @@ TRANSACTIONS
 ==================================================
 */
 
-app.get("/transactions", async (req, res) => {
-  try {
-    const email = normalizeEmail(req.query.email);
+app.get(
+  "/transactions",
+  async (req, res) => {
+    try {
+      const email =
+        normalizeEmail(req.query.email);
 
-    if (!email) {
-      return res.status(400).json({
+      if (!email) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Email is required."
+        });
+      }
+
+      const result =
+        await pool.query(
+          `SELECT
+            t.id,
+            t.amount,
+            t.type,
+            t.description,
+            t.reference,
+            t.created_at
+           FROM transactions t
+           JOIN users u
+             ON u.id = t.user_id
+           WHERE LOWER(u.email) = $1
+           ORDER BY t.created_at DESC
+           LIMIT 100`,
+          [email]
+        );
+
+      res.json({
+        success: true,
+        transactions:
+          result.rows.map(t => ({
+            ...t,
+            amount:
+              Number(t.amount)
+          }))
+      });
+    } catch (error) {
+      console.error(
+        "TRANSACTIONS ERROR:",
+        error
+      );
+
+      res.status(500).json({
         success: false,
-        message: "Email is required."
+        message:
+          "Unable to load transactions."
       });
     }
-
-    const result = await pool.query(
-      `SELECT
-        t.id,
-        t.amount,
-        t.type,
-        t.description,
-        t.reference,
-        t.created_at
-       FROM transactions t
-       JOIN users u ON u.id = t.user_id
-       WHERE LOWER(u.email) = $1
-       ORDER BY t.created_at DESC
-       LIMIT 100`,
-      [email]
-    );
-
-    res.json({
-      success: true,
-      transactions: result.rows.map(t => ({
-        ...t,
-        amount: Number(t.amount)
-      }))
-    });
-  } catch (error) {
-    console.error(
-      "TRANSACTIONS ERROR:",
-      error
-    );
-
-    res.status(500).json({
-      success: false,
-      message:
-        "Unable to load transactions."
-    });
   }
-});
+);
 
 /*
 ==================================================
@@ -1058,27 +1356,34 @@ app.get(
   async (req, res) => {
     try {
       const email =
-        normalizeEmail(req.query.email);
+        normalizeEmail(
+          req.query.email
+        );
 
       if (!email) {
         return res.status(400).json({
           success: false,
-          message: "Email is required."
+          message:
+            "Email is required."
         });
       }
 
-      const userResult = await pool.query(
-        `SELECT id
-         FROM users
-         WHERE LOWER(email) = $1
-         LIMIT 1`,
-        [email]
-      );
+      const userResult =
+        await pool.query(
+          `SELECT id
+           FROM users
+           WHERE LOWER(email) = $1
+           LIMIT 1`,
+          [email]
+        );
 
-      if (userResult.rows.length === 0) {
+      if (
+        userResult.rows.length === 0
+      ) {
         return res.status(404).json({
           success: false,
-          message: "User not found."
+          message:
+            "User not found."
         });
       }
 
@@ -1097,8 +1402,10 @@ app.get(
       res.json({
         success: true,
         claimed:
-          rewardResult.rows.length > 0,
-        amount: COMMUNITY_REWARD
+          rewardResult.rows.length >
+          0,
+        amount:
+          COMMUNITY_REWARD
       });
     } catch (error) {
       console.error(
@@ -1120,28 +1427,33 @@ app.get(
 CLAIM COMMUNITY ₦400
 ==================================================
 
-This does NOT require VIP.
-
-One account can claim only once.
+VIP IS NOT REQUIRED.
+==================================================
 */
 
 app.post(
   "/claim-community-reward",
   async (req, res) => {
-    const client = await pool.connect();
+    const client =
+      await pool.connect();
 
     try {
       const email =
-        normalizeEmail(req.body.email);
+        normalizeEmail(
+          req.body.email
+        );
 
       if (!email) {
         return res.status(400).json({
           success: false,
-          message: "Email is required."
+          message:
+            "Email is required."
         });
       }
 
-      await client.query("BEGIN");
+      await client.query(
+        "BEGIN"
+      );
 
       const userResult =
         await client.query(
@@ -1152,28 +1464,33 @@ app.post(
           [email]
         );
 
-      if (userResult.rows.length === 0) {
-        await client.query("ROLLBACK");
+      if (
+        userResult.rows.length === 0
+      ) {
+        await client.query(
+          "ROLLBACK"
+        );
 
         return res.status(404).json({
           success: false,
-          message: "User not found."
+          message:
+            "User not found."
         });
       }
 
       const user =
         userResult.rows[0];
 
-      /*
-      Attempt to create the reward record.
-      UNIQUE(user_id) prevents duplicates.
-      */
-
       const rewardInsert =
         await client.query(
           `INSERT INTO community_rewards
-           (user_id, amount, status)
-           VALUES ($1, $2, 'claimed')
+           (
+             user_id,
+             amount,
+             status
+           )
+           VALUES
+           ($1, $2, 'claimed')
            ON CONFLICT (user_id)
            DO NOTHING
            RETURNING id`,
@@ -1186,7 +1503,9 @@ app.post(
       if (
         rewardInsert.rows.length === 0
       ) {
-        await client.query("ROLLBACK");
+        await client.query(
+          "ROLLBACK"
+        );
 
         return res.status(409).json({
           success: false,
@@ -1211,10 +1530,21 @@ app.post(
 
       await client.query(
         `INSERT INTO transactions
-         (user_id, amount, type, description, reference)
+         (
+           user_id,
+           amount,
+           type,
+           description,
+           reference
+         )
          VALUES
-         ($1, $2, 'community_reward',
-          'WhatsApp Community Reward', $3)`,
+         (
+           $1,
+           $2,
+           'community_reward',
+           'WhatsApp Community Reward',
+           $3
+         )`,
         [
           user.id,
           COMMUNITY_REWARD,
@@ -1222,18 +1552,24 @@ app.post(
         ]
       );
 
-      await client.query("COMMIT");
+      await client.query(
+        "COMMIT"
+      );
 
       res.json({
         success: true,
         message:
           "₦400 community reward has been added to your wallet.",
-        reward: COMMUNITY_REWARD,
-        balance: newBalance
+        reward:
+          COMMUNITY_REWARD,
+        balance:
+          newBalance
       });
     } catch (error) {
       try {
-        await client.query("ROLLBACK");
+        await client.query(
+          "ROLLBACK"
+        );
       } catch {}
 
       console.error(
@@ -1263,12 +1599,15 @@ app.get(
   async (req, res) => {
     try {
       const email =
-        normalizeEmail(req.query.email);
+        normalizeEmail(
+          req.query.email
+        );
 
       if (!email) {
         return res.status(400).json({
           success: false,
-          message: "Email is required."
+          message:
+            "Email is required."
         });
       }
 
@@ -1281,10 +1620,13 @@ app.get(
           [email]
         );
 
-      if (userResult.rows.length === 0) {
+      if (
+        userResult.rows.length === 0
+      ) {
         return res.status(404).json({
           success: false,
-          message: "User not found."
+          message:
+            "User not found."
         });
       }
 
@@ -1311,9 +1653,13 @@ app.get(
       res.json({
         success: true,
         totalReferrals:
-          Number(countResult.rows[0].count),
+          Number(
+            countResult.rows[0].count
+          ),
         paidReferrals:
-          Number(paidResult.rows[0].count),
+          Number(
+            paidResult.rows[0].count
+          ),
         rewardPerReferral:
           REFERRAL_REWARD
       });
@@ -1338,13 +1684,403 @@ OLD WALLET VIP UPGRADE
 ==================================================
 */
 
-app.post("/upgrade-vip", (req, res) => {
-  res.status(410).json({
-    success: false,
-    message:
-      "VIP upgrades must be paid through the OPay payment process."
-  });
-});
+app.post(
+  "/upgrade-vip",
+  (req, res) => {
+    res.status(410).json({
+      success: false,
+      message:
+        "VIP upgrades must be paid through the OPay payment process."
+    });
+  }
+);
+
+/*
+==================================================
+WITHDRAWAL WINDOW STATUS
+==================================================
+*/
+
+app.get(
+  "/withdrawal-window",
+  (req, res) => {
+    const open =
+      isWithdrawalWindowOpen();
+
+    res.json({
+      success: true,
+      open,
+      minimum:
+        MIN_WITHDRAWAL,
+      day:
+        "Sunday",
+      start:
+        "10:00 AM",
+      end:
+        "5:00 PM",
+      timezone:
+        "Africa/Lagos"
+    });
+  }
+);
+
+/*
+==================================================
+SUBMIT WITHDRAWAL
+==================================================
+
+Rules:
+
+- Sunday only
+- 10 AM to 5 PM
+- Minimum ₦5,000
+- Balance must be enough
+- Money is NOT deducted here
+- Only one pending withdrawal per user
+==================================================
+*/
+
+app.post(
+  "/submit-withdrawal",
+  async (req, res) => {
+    try {
+      const email =
+        normalizeEmail(
+          req.body.email
+        );
+
+      const amount =
+        Number(req.body.amount);
+
+      const bank =
+        String(
+          req.body.bank ||
+          req.body.bankName ||
+          ""
+        ).trim();
+
+      const accountName =
+        String(
+          req.body.accountName ||
+          ""
+        ).trim();
+
+      const accountNumber =
+        String(
+          req.body.accountNumber ||
+          ""
+        ).trim();
+
+      /*
+      Check withdrawal time first.
+      */
+
+      if (
+        !isWithdrawalWindowOpen()
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Withdrawals are only available on Sunday from 10:00 AM to 5:00 PM."
+        });
+      }
+
+      if (!email) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Email is required."
+        });
+      }
+
+      if (
+        !Number.isFinite(amount) ||
+        amount < MIN_WITHDRAWAL
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Minimum withdrawal is ₦5,000."
+        });
+      }
+
+      /*
+      Only whole naira amounts.
+      */
+
+      if (
+        !Number.isInteger(amount)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Withdrawal amount must be a whole naira amount."
+        });
+      }
+
+      if (!bank) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Please select a bank."
+        });
+      }
+
+      if (!accountName) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Account name is required."
+        });
+      }
+
+      /*
+      Nigerian bank account numbers
+      are normally 10 digits.
+      */
+
+      if (
+        !/^\d{10}$/.test(
+          accountNumber
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Account number must contain exactly 10 digits."
+        });
+      }
+
+      const userResult =
+        await pool.query(
+          `SELECT
+            id,
+            name,
+            email,
+            balance
+           FROM users
+           WHERE LOWER(email) = $1
+           LIMIT 1`,
+          [email]
+        );
+
+      if (
+        userResult.rows.length === 0
+      ) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "User not found."
+        });
+      }
+
+      const user =
+        userResult.rows[0];
+
+      const balance =
+        Number(user.balance);
+
+      if (
+        balance < amount
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            `Insufficient wallet balance. Your current balance is ₦${balance.toLocaleString()}.`
+        });
+      }
+
+      /*
+      Prevent multiple pending withdrawals.
+      */
+
+      const pendingResult =
+        await pool.query(
+          `SELECT id
+           FROM withdrawals
+           WHERE user_id = $1
+             AND status = 'pending'
+           LIMIT 1`,
+          [user.id]
+        );
+
+      if (
+        pendingResult.rows.length > 0
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "You already have a pending withdrawal request. Please wait for it to be reviewed."
+        });
+      }
+
+      /*
+      IMPORTANT:
+      We do NOT deduct the balance here.
+      */
+
+      const result =
+        await pool.query(
+          `INSERT INTO withdrawals
+           (
+             user_id,
+             amount,
+             bank_name,
+             account_name,
+             account_number,
+             status
+           )
+           VALUES
+           (
+             $1,
+             $2,
+             $3,
+             $4,
+             $5,
+             'pending'
+           )
+           RETURNING
+             id,
+             amount,
+             bank_name,
+             account_name,
+             account_number,
+             status,
+             created_at`,
+          [
+            user.id,
+            amount,
+            bank,
+            accountName,
+            accountNumber
+          ]
+        );
+
+      const withdrawal =
+        result.rows[0];
+
+      res.json({
+        success: true,
+        message:
+          "Withdrawal request submitted successfully. Your money will remain in your wallet until the moderator approves the request.",
+        withdrawal: {
+          ...withdrawal,
+          amount:
+            Number(
+              withdrawal.amount
+            )
+        }
+      });
+    } catch (error) {
+      console.error(
+        "SUBMIT WITHDRAWAL ERROR:",
+        error
+      );
+
+      res.status(500).json({
+        success: false,
+        message:
+          "Unable to submit withdrawal request."
+      });
+    }
+  }
+);
+
+/*
+==================================================
+MY WITHDRAWALS
+==================================================
+*/
+
+app.get(
+  "/my-withdrawals",
+  async (req, res) => {
+    try {
+      const email =
+        normalizeEmail(
+          req.query.email
+        );
+
+      if (!email) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Email is required."
+        });
+      }
+
+      const result =
+        await pool.query(
+          `SELECT
+            w.id,
+            w.amount,
+            w.bank_name,
+            w.account_name,
+            w.account_number,
+            w.status,
+            w.rejection_reason,
+            w.created_at,
+            w.reviewed_at
+           FROM withdrawals w
+           JOIN users u
+             ON u.id = w.user_id
+           WHERE LOWER(u.email) = $1
+           ORDER BY w.created_at DESC`,
+          [email]
+        );
+
+      res.json({
+        success: true,
+        withdrawals:
+          result.rows.map(w => ({
+            ...w,
+            amount:
+              Number(w.amount)
+          }))
+      });
+    } catch (error) {
+      console.error(
+        "MY WITHDRAWALS ERROR:",
+        error
+      );
+
+      res.status(500).json({
+        success: false,
+        message:
+          "Unable to load withdrawal history."
+      });
+    }
+  }
+);
+
+/*
+==================================================
+MODERATOR AUTH HELPER
+==================================================
+*/
+
+function checkModerator(req, res) {
+  const moderatorKey =
+    String(
+      req.headers["x-moderator-key"] || ""
+    );
+
+  if (
+    !process.env.MODERATOR_KEY ||
+    moderatorKey !==
+      process.env.MODERATOR_KEY
+  ) {
+    res.status(401).json({
+      success: false,
+      message:
+        "Invalid moderator key."
+    });
+
+    return false;
+  }
+
+  return true;
+}
 
 /*
 ==================================================
@@ -1356,110 +2092,124 @@ app.get(
   "/moderator/pending-payments",
   async (req, res) => {
     try {
-      const moderatorKey =
-        String(
-          req.headers["x-moderator-key"] || ""
-        );
-
       if (
-        !process.env.MODERATOR_KEY ||
-        moderatorKey !==
-          process.env.MODERATOR_KEY
+        !checkModerator(req, res)
       ) {
-        return res.status(401).json({
-          success: false,
-          message: "Invalid moderator key."
-        });
+        return;
       }
 
-      const result = await pool.query(
-        `SELECT
-          p.id,
-          p.user_id,
-          u.name,
-          u.email,
-          p.amount,
-          p.reference,
-          p.vip_level,
-          p.status,
-          p.created_at
-         FROM payments p
-         JOIN users u ON u.id = p.user_id
-         WHERE p.status = 'pending'
-         ORDER BY p.created_at ASC`
-      );
-
-      /*
-      Only show payments where the amount exactly
-      matches the selected VIP plan.
-
-      This hides old invalid payments such as ₦1,000.
-      */
+      const result =
+        await pool.query(
+          `SELECT
+            p.id,
+            p.user_id,
+            u.name,
+            u.email,
+            p.amount,
+            p.reference,
+            p.vip_level,
+            p.status,
+            p.created_at
+           FROM payments p
+           JOIN users u
+             ON u.id = p.user_id
+           WHERE p.status = 'pending'
+           ORDER BY p.created_at ASC`
+        );
 
       const validPayments =
-        result.rows.filter(payment => {
-          const amount =
-            Number(payment.amount);
-
-          const levelFromAmount =
-            getVIPLevelFromAmount(amount);
-
-          const requestedLevel =
-            Number(payment.vip_level);
-
-          const level =
-            requestedLevel &&
-            VIP_PLANS[requestedLevel]
-              ? requestedLevel
-              : levelFromAmount;
-
-          return (
-            level &&
-            Number(VIP_PLANS[level].price) ===
-              amount
-          );
-        });
-
-      res.json({
-        success: true,
-        payments: validPayments.map(
+        result.rows.filter(
           payment => {
             const amount =
-              Number(payment.amount);
+              Number(
+                payment.amount
+              );
 
-            const derivedLevel =
+            const levelFromAmount =
               getVIPLevelFromAmount(
                 amount
               );
 
-            const vipLevel =
-              Number(payment.vip_level) &&
-              VIP_PLANS[
-                Number(payment.vip_level)
-              ]
-                ? Number(payment.vip_level)
-                : derivedLevel;
+            const requestedLevel =
+              Number(
+                payment.vip_level
+              );
 
-            return {
-              id: payment.id,
-              user_id: payment.user_id,
-              name: payment.name,
-              email: payment.email,
-              amount,
-              reference:
-                payment.reference,
-              vip_level: vipLevel,
-              vip_name:
-                VIP_PLANS[vipLevel]
-                  ? VIP_PLANS[vipLevel].name
-                  : "VIP",
-              status:
-                payment.status,
-              created_at:
-                payment.created_at
-            };
+            const level =
+              requestedLevel &&
+              VIP_PLANS[
+                requestedLevel
+              ]
+                ? requestedLevel
+                : levelFromAmount;
+
+            return (
+              level &&
+              Number(
+                VIP_PLANS[level].price
+              ) === amount
+            );
           }
-        )
+        );
+
+      res.json({
+        success: true,
+        payments:
+          validPayments.map(
+            payment => {
+              const amount =
+                Number(
+                  payment.amount
+                );
+
+              const derivedLevel =
+                getVIPLevelFromAmount(
+                  amount
+                );
+
+              const vipLevel =
+                Number(
+                  payment.vip_level
+                ) &&
+                VIP_PLANS[
+                  Number(
+                    payment.vip_level
+                  )
+                ]
+                  ? Number(
+                      payment.vip_level
+                    )
+                  : derivedLevel;
+
+              return {
+                id:
+                  payment.id,
+                user_id:
+                  payment.user_id,
+                name:
+                  payment.name,
+                email:
+                  payment.email,
+                amount,
+                reference:
+                  payment.reference,
+                vip_level:
+                  vipLevel,
+                vip_name:
+                  VIP_PLANS[
+                    vipLevel
+                  ]
+                    ? VIP_PLANS[
+                        vipLevel
+                      ].name
+                    : "VIP",
+                status:
+                  payment.status,
+                created_at:
+                  payment.created_at
+              };
+            }
+          )
       });
     } catch (error) {
       console.error(
@@ -1485,36 +2235,33 @@ MODERATOR: APPROVE PAYMENT
 app.post(
   "/moderator/payments/:id/approve",
   async (req, res) => {
-    const client = await pool.connect();
+    const client =
+      await pool.connect();
 
     try {
-      const moderatorKey =
-        String(
-          req.headers["x-moderator-key"] || ""
-        );
-
       if (
-        !process.env.MODERATOR_KEY ||
-        moderatorKey !==
-          process.env.MODERATOR_KEY
+        !checkModerator(req, res)
       ) {
-        return res.status(401).json({
-          success: false,
-          message: "Invalid moderator key."
-        });
+        client.release();
+        return;
       }
 
       const paymentId =
         Number(req.params.id);
 
       if (!paymentId) {
+        client.release();
+
         return res.status(400).json({
           success: false,
-          message: "Invalid payment ID."
+          message:
+            "Invalid payment ID."
         });
       }
 
-      await client.query("BEGIN");
+      await client.query(
+        "BEGIN"
+      );
 
       const paymentResult =
         await client.query(
@@ -1529,7 +2276,8 @@ app.post(
             u.name,
             u.vip_level AS current_vip_level
            FROM payments p
-           JOIN users u ON u.id = p.user_id
+           JOIN users u
+             ON u.id = p.user_id
            WHERE p.id = $1
            FOR UPDATE`,
           [paymentId]
@@ -1538,11 +2286,14 @@ app.post(
       if (
         paymentResult.rows.length === 0
       ) {
-        await client.query("ROLLBACK");
+        await client.query(
+          "ROLLBACK"
+        );
 
         return res.status(404).json({
           success: false,
-          message: "Payment not found."
+          message:
+            "Payment not found."
         });
       }
 
@@ -1550,9 +2301,12 @@ app.post(
         paymentResult.rows[0];
 
       if (
-        payment.status !== "pending"
+        payment.status !==
+        "pending"
       ) {
-        await client.query("ROLLBACK");
+        await client.query(
+          "ROLLBACK"
+        );
 
         return res.status(400).json({
           success: false,
@@ -1562,28 +2316,32 @@ app.post(
       }
 
       const amount =
-        Number(payment.amount);
-
-      /*
-      Determine VIP from exact amount.
-      */
+        Number(
+          payment.amount
+        );
 
       let vipLevel =
-        Number(payment.vip_level);
+        Number(
+          payment.vip_level
+        );
 
       if (
         !vipLevel ||
         !VIP_PLANS[vipLevel]
       ) {
         vipLevel =
-          getVIPLevelFromAmount(amount);
+          getVIPLevelFromAmount(
+            amount
+          );
       }
 
       if (
         !vipLevel ||
         !VIP_PLANS[vipLevel]
       ) {
-        await client.query("ROLLBACK");
+        await client.query(
+          "ROLLBACK"
+        );
 
         return res.status(400).json({
           success: false,
@@ -1593,10 +2351,13 @@ app.post(
       }
 
       if (
-        Number(VIP_PLANS[vipLevel].price) !==
-        amount
+        Number(
+          VIP_PLANS[vipLevel].price
+        ) !== amount
       ) {
-        await client.query("ROLLBACK");
+        await client.query(
+          "ROLLBACK"
+        );
 
         return res.status(400).json({
           success: false,
@@ -1610,17 +2371,8 @@ app.post(
           payment.current_vip_level
         );
 
-      /*
-      Only the FIRST successful VIP activation
-      generates the referral reward.
-      */
-
       const isFirstVIP =
         oldVIP === 0;
-
-      /*
-      Activate the requested VIP.
-      */
 
       await client.query(
         `UPDATE users
@@ -1632,10 +2384,6 @@ app.post(
           payment.user_id
         ]
       );
-
-      /*
-      Mark payment approved.
-      */
 
       await client.query(
         `UPDATE payments
@@ -1649,19 +2397,23 @@ app.post(
         ]
       );
 
-      /*
-      Record VIP activation transaction.
-
-      The VIP purchase itself does NOT add money
-      to the user's wallet.
-      */
-
       await client.query(
         `INSERT INTO transactions
-         (user_id, amount, type, description, reference)
+         (
+           user_id,
+           amount,
+           type,
+           description,
+           reference
+         )
          VALUES
-         ($1, $2, 'vip_activation',
-          $3, $4)`,
+         (
+           $1,
+           $2,
+           'vip_activation',
+           $3,
+           $4
+         )`,
         [
           payment.user_id,
           0,
@@ -1672,11 +2424,16 @@ app.post(
       );
 
       /*
+      ==================================================
       REFERRAL REWARD
+      ==================================================
       */
 
-      let referralPaid = false;
-      let referralAmount = 0;
+      let referralPaid =
+        false;
+
+      let referralAmount =
+        0;
 
       if (isFirstVIP) {
         const referrerResult =
@@ -1689,33 +2446,36 @@ app.post(
           );
 
         if (
-          referrerResult.rows.length > 0
+          referrerResult.rows.length >
+          0
         ) {
           const referrerId =
             referrerResult.rows[0]
               .referred_by;
-
-          /*
-          Make sure the referred user has
-          an actual referrer.
-          */
 
           if (
             referrerId &&
             Number(referrerId) !==
               Number(payment.user_id)
           ) {
-            /*
-            The UNIQUE referred_user_id
-            makes this one-time.
-            */
-
             const referralInsert =
               await client.query(
                 `INSERT INTO referral_rewards
-                 (referrer_id, referred_user_id, amount, status)
-                 VALUES ($1, $2, $3, 'paid')
-                 ON CONFLICT (referred_user_id)
+                 (
+                   referrer_id,
+                   referred_user_id,
+                   amount,
+                   status
+                 )
+                 VALUES
+                 (
+                   $1,
+                   $2,
+                   $3,
+                   'paid'
+                 )
+                 ON CONFLICT
+                 (referred_user_id)
                  DO NOTHING
                  RETURNING id`,
                 [
@@ -1739,13 +2499,14 @@ app.post(
                 );
 
               if (
-                referrerBalanceResult.rows
-                  .length > 0
+                referrerBalanceResult
+                  .rows.length > 0
               ) {
                 const referrerBalance =
                   Number(
                     referrerBalanceResult
-                      .rows[0].balance
+                      .rows[0]
+                      .balance
                   );
 
                 const newReferrerBalance =
@@ -1764,11 +2525,21 @@ app.post(
 
                 await client.query(
                   `INSERT INTO transactions
-                   (user_id, amount, type, description, reference)
+                   (
+                     user_id,
+                     amount,
+                     type,
+                     description,
+                     reference
+                   )
                    VALUES
-                   ($1, $2, 'referral_reward',
-                    'Referral VIP Activation Reward',
-                    $3)`,
+                   (
+                     $1,
+                     $2,
+                     'referral_reward',
+                     'Referral VIP Activation Reward',
+                     $3
+                   )`,
                   [
                     referrerId,
                     REFERRAL_REWARD,
@@ -1776,7 +2547,9 @@ app.post(
                   ]
                 );
 
-                referralPaid = true;
+                referralPaid =
+                  true;
+
                 referralAmount =
                   REFERRAL_REWARD;
               }
@@ -1785,13 +2558,16 @@ app.post(
         }
       }
 
-      await client.query("COMMIT");
+      await client.query(
+        "COMMIT"
+      );
 
       res.json({
         success: true,
         message:
           "Payment approved and VIP activated.",
-        vip_level: vipLevel,
+        vip_level:
+          vipLevel,
         referral_reward_paid:
           referralPaid,
         referral_reward:
@@ -1799,7 +2575,9 @@ app.post(
       });
     } catch (error) {
       try {
-        await client.query("ROLLBACK");
+        await client.query(
+          "ROLLBACK"
+        );
       } catch {}
 
       console.error(
@@ -1828,29 +2606,20 @@ app.post(
   "/moderator/payments/:id/reject",
   async (req, res) => {
     try {
-      const moderatorKey =
-        String(
-          req.headers["x-moderator-key"] || ""
-        );
-
       if (
-        !process.env.MODERATOR_KEY ||
-        moderatorKey !==
-          process.env.MODERATOR_KEY
+        !checkModerator(req, res)
       ) {
-        return res.status(401).json({
-          success: false,
-          message: "Invalid moderator key."
-        });
+        return;
       }
 
       const paymentId =
         Number(req.params.id);
 
-      const reason = String(
-        req.body.reason ||
+      const reason =
+        String(
+          req.body.reason ||
           "Payment rejected by moderator."
-      ).trim();
+        ).trim();
 
       const result =
         await pool.query(
@@ -1898,6 +2667,416 @@ app.post(
 
 /*
 ==================================================
+MODERATOR: PENDING WITHDRAWALS
+==================================================
+*/
+
+app.get(
+  "/moderator/pending-withdrawals",
+  async (req, res) => {
+    try {
+      if (
+        !checkModerator(req, res)
+      ) {
+        return;
+      }
+
+      const result =
+        await pool.query(
+          `SELECT
+            w.id,
+            w.user_id,
+            u.name,
+            u.email,
+            u.balance,
+            w.amount,
+            w.bank_name,
+            w.account_name,
+            w.account_number,
+            w.status,
+            w.created_at
+           FROM withdrawals w
+           JOIN users u
+             ON u.id = w.user_id
+           WHERE w.status = 'pending'
+           ORDER BY w.created_at ASC`
+        );
+
+      res.json({
+        success: true,
+        withdrawals:
+          result.rows.map(
+            withdrawal => ({
+              id:
+                withdrawal.id,
+              user_id:
+                withdrawal.user_id,
+              name:
+                withdrawal.name,
+              email:
+                withdrawal.email,
+              balance:
+                Number(
+                  withdrawal.balance
+                ),
+              amount:
+                Number(
+                  withdrawal.amount
+                ),
+              bank_name:
+                withdrawal.bank_name,
+              account_name:
+                withdrawal.account_name,
+              account_number:
+                withdrawal.account_number,
+              status:
+                withdrawal.status,
+              created_at:
+                withdrawal.created_at
+            })
+          )
+      });
+    } catch (error) {
+      console.error(
+        "MODERATOR PENDING WITHDRAWALS ERROR:",
+        error
+      );
+
+      res.status(500).json({
+        success: false,
+        message:
+          "Unable to load pending withdrawals."
+      });
+    }
+  }
+);
+
+/*
+==================================================
+MODERATOR: APPROVE WITHDRAWAL
+==================================================
+
+IMPORTANT:
+
+The moderator should manually send the money
+to the user's bank account FIRST.
+
+Then press Approve.
+
+Only after approval does Zavero deduct
+the withdrawal amount from the wallet.
+
+Everything happens inside one database
+transaction to prevent double deductions.
+==================================================
+*/
+
+app.post(
+  "/moderator/withdrawals/:id/approve",
+  async (req, res) => {
+    const client =
+      await pool.connect();
+
+    try {
+      if (
+        !checkModerator(req, res)
+      ) {
+        client.release();
+        return;
+      }
+
+      const withdrawalId =
+        Number(req.params.id);
+
+      if (!withdrawalId) {
+        client.release();
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid withdrawal ID."
+        });
+      }
+
+      await client.query(
+        "BEGIN"
+      );
+
+      /*
+      Lock the withdrawal and user
+      so the same withdrawal cannot
+      be approved twice.
+      */
+
+      const withdrawalResult =
+        await client.query(
+          `SELECT
+            w.id,
+            w.user_id,
+            w.amount,
+            w.bank_name,
+            w.account_name,
+            w.account_number,
+            w.status,
+            u.name,
+            u.email,
+            u.balance
+           FROM withdrawals w
+           JOIN users u
+             ON u.id = w.user_id
+           WHERE w.id = $1
+           FOR UPDATE`,
+          [withdrawalId]
+        );
+
+      if (
+        withdrawalResult.rows.length ===
+        0
+      ) {
+        await client.query(
+          "ROLLBACK"
+        );
+
+        return res.status(404).json({
+          success: false,
+          message:
+            "Withdrawal not found."
+        });
+      }
+
+      const withdrawal =
+        withdrawalResult.rows[0];
+
+      if (
+        withdrawal.status !==
+        "pending"
+      ) {
+        await client.query(
+          "ROLLBACK"
+        );
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "This withdrawal has already been processed."
+        });
+      }
+
+      const amount =
+        Number(
+          withdrawal.amount
+        );
+
+      const balance =
+        Number(
+          withdrawal.balance
+        );
+
+      /*
+      Check balance again at approval time.
+      */
+
+      if (
+        balance < amount
+      ) {
+        /*
+        We do NOT deduct anything.
+        The moderator should investigate
+        the user's balance before approving.
+        */
+
+        await client.query(
+          "ROLLBACK"
+        );
+
+        return res.status(409).json({
+          success: false,
+          message:
+            "User does not have enough wallet balance to approve this withdrawal."
+        });
+      }
+
+      const newBalance =
+        balance - amount;
+
+      /*
+      Deduct money only now.
+      */
+
+      await client.query(
+        `UPDATE users
+         SET balance = $1
+         WHERE id = $2`,
+        [
+          newBalance,
+          withdrawal.user_id
+        ]
+      );
+
+      /*
+      Mark withdrawal approved.
+      */
+
+      await client.query(
+        `UPDATE withdrawals
+         SET status = 'approved',
+             reviewed_at = NOW(),
+             rejection_reason = NULL
+         WHERE id = $1`,
+        [withdrawalId]
+      );
+
+      /*
+      Add withdrawal transaction.
+      Negative amount represents money leaving
+      the user's Zavero wallet.
+      */
+
+      await client.query(
+        `INSERT INTO transactions
+         (
+           user_id,
+           amount,
+           type,
+           description,
+           reference
+         )
+         VALUES
+         (
+           $1,
+           $2,
+           'withdrawal',
+           $3,
+           $4
+         )`,
+        [
+          withdrawal.user_id,
+          -amount,
+          `Withdrawal to ${withdrawal.bank_name}`,
+          `WITHDRAWAL-${withdrawalId}`
+        ]
+      );
+
+      await client.query(
+        "COMMIT"
+      );
+
+      res.json({
+        success: true,
+        message:
+          "Withdrawal approved and wallet balance deducted.",
+        withdrawal_id:
+          withdrawalId,
+        amount,
+        new_balance:
+          newBalance
+      });
+    } catch (error) {
+      try {
+        await client.query(
+          "ROLLBACK"
+        );
+      } catch {}
+
+      console.error(
+        "APPROVE WITHDRAWAL ERROR:",
+        error
+      );
+
+      res.status(500).json({
+        success: false,
+        message:
+          "Unable to approve withdrawal."
+      });
+    } finally {
+      client.release();
+    }
+  }
+);
+
+/*
+==================================================
+MODERATOR: REJECT WITHDRAWAL
+==================================================
+
+NO MONEY IS DEDUCTED WHEN REJECTED.
+==================================================
+*/
+
+app.post(
+  "/moderator/withdrawals/:id/reject",
+  async (req, res) => {
+    try {
+      if (
+        !checkModerator(req, res)
+      ) {
+        return;
+      }
+
+      const withdrawalId =
+        Number(req.params.id);
+
+      if (!withdrawalId) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid withdrawal ID."
+        });
+      }
+
+      const reason =
+        String(
+          req.body.reason ||
+          "Withdrawal rejected by moderator."
+        ).trim();
+
+      const result =
+        await pool.query(
+          `UPDATE withdrawals
+           SET status = 'rejected',
+               rejection_reason = $1,
+               reviewed_at = NOW()
+           WHERE id = $2
+             AND status = 'pending'
+           RETURNING id`,
+          [
+            reason,
+            withdrawalId
+          ]
+        );
+
+      if (
+        result.rows.length === 0
+      ) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "Pending withdrawal not found."
+        });
+      }
+
+      res.json({
+        success: true,
+        message:
+          "Withdrawal rejected successfully. The user's wallet balance was not deducted."
+      });
+    } catch (error) {
+      console.error(
+        "REJECT WITHDRAWAL ERROR:",
+        error
+      );
+
+      res.status(500).json({
+        success: false,
+        message:
+          "Unable to reject withdrawal."
+      });
+    }
+  }
+);
+
+/*
+==================================================
 START SERVER
 ==================================================
 */
@@ -1906,11 +3085,14 @@ async function startServer() {
   try {
     await setupDatabase();
 
-    app.listen(PORT, () => {
-      console.log(
-        `Zavero backend running on port ${PORT}`
-      );
-    });
+    app.listen(
+      PORT,
+      () => {
+        console.log(
+          `Zavero backend running on port ${PORT}`
+        );
+      }
+    );
   } catch (error) {
     console.error(
       "SERVER START ERROR:",
