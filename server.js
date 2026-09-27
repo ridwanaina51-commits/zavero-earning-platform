@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const crypto = require("crypto");
+const path = require("path");
 const { Pool } = require("pg");
 
 const app = express();
@@ -518,11 +519,9 @@ ROOT
 */
 
 app.get("/", (req, res) => {
-  res.json({
-    success: true,
-    message: "Zavero backend is working",
-    site: SITE_URL
-  });
+  res.sendFile(
+    path.join(__dirname, "index.html")
+  );
 });
 
 /*
