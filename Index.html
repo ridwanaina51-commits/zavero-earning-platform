@@ -1,1218 +1,4540 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
+  <meta charset="UTF-8">
 
-<meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
 
-<meta name="viewport"
-      content="width=device-width, initial-scale=1.0">
+  <title>Zavero Wallet</title>
 
-<title>Zavero</title>
+  <style>
 
-<style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
 
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-}
+    body {
+      margin: 0;
+      font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+      background: #070b2b;
+      color: #ffffff;
+    }
 
-body {
-    font-family: Arial, sans-serif;
-    background: #090a24;
-    color: white;
-    min-height: 100vh;
-    padding-bottom: 90px;
-}
+    button,
+    input,
+    select {
+      font-family: inherit;
+    }
 
-button {
-    border: none;
-    border-radius: 12px;
-    padding: 14px 22px;
-    margin: 8px;
-    font-weight: bold;
-    cursor: pointer;
-}
+    button {
+      cursor: pointer;
+    }
 
-input,
-select {
-    display: block;
-    width: 90%;
-    max-width: 360px;
-    margin: 10px auto;
-    padding: 14px;
-    border: none;
-    border-radius: 10px;
-    background: #151633;
-    color: white;
-}
+    .hidden {
+      display: none !important;
+    }
 
-.login {
-    background: #5142e8;
-    color: white;
-}
+    .muted {
+      color: #aeb7d9;
+    }
 
-.signup {
-    background: #20d968;
-    color: white;
-}
+    .message {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.07);
+      color: #dce3ff;
+      font-size: 14px;
+    }
 
-#loginPage,
-#signupPage,
-#dashboard {
-    display: none;
-}
+    /*
+    ==============================================
+    AUTH
+    ==============================================
+    */
 
-.box {
-    max-width: 480px;
-    margin: auto;
-    padding: 35px 20px;
-    text-align: center;
-}
+    #authPage {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background:
+        radial-gradient(
+          circle at top,
+          #142c78,
+          #070b2b 55%
+        );
+    }
 
-#homePage {
-    text-align: center;
-    padding: 45px 20px;
-}
+    .auth-box {
+      width: 100%;
+      max-width: 430px;
+      background: #101744;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 24px;
+      padding: 25px;
+      box-shadow:
+        0 20px 60px rgba(0,0,0,0.35);
+    }
 
-#homePage h1 {
-    color: #7667ff;
-    font-size: 32px;
-    margin-bottom: 20px;
-}
+    .logo {
+      text-align: center;
+      margin-bottom: 25px;
+    }
 
-.app {
-    max-width: 480px;
-    margin: auto;
-    padding: 20px;
-}
+    .logo-z {
+      width: 70px;
+      height: 70px;
+      border-radius: 20px;
+      margin: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background:
+        linear-gradient(
+          135deg,
+          #2e7dff,
+          #0c45c9
+        );
+      font-size: 38px;
+      font-weight: 900;
+      box-shadow:
+        0 10px 30px rgba(30,100,255,0.35);
+    }
 
-.logo {
-    text-align: center;
-    color: #7667ff;
-    font-size: 30px;
-    font-weight: bold;
-    margin: 15px 0;
-}
+    .logo h1 {
+      margin: 12px 0 4px;
+      font-size: 29px;
+    }
 
-.welcome {
-    text-align: center;
-    margin-bottom: 20px;
-}
+    .logo p {
+      margin: 0;
+      color: #aeb7d9;
+    }
 
-.balance-card {
-    background: linear-gradient(135deg, #5142e8, #7667ff);
-    padding: 30px 20px;
-    border-radius: 25px;
-    text-align: center;
-}
+    .auth-box h2 {
+      margin-top: 10px;
+    }
 
-.balance-title {
-    font-size: 14px;
-    opacity: .9;
-}
+    input,
+    select {
+      width: 100%;
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid #27356f;
+      background: #080d31;
+      color: white;
+      outline: none;
+      margin-bottom: 12px;
+    }
 
-.balance {
-    font-size: 40px;
-    font-weight: bold;
-    margin: 15px 0;
-}
+    select option {
+      background: #101744;
+      color: white;
+    }
 
-.earned {
-    opacity: .9;
-}
+    input:focus,
+    select:focus {
+      border-color: #397fff;
+    }
 
-.section-title {
-    font-size: 22px;
-    font-weight: bold;
-    margin: 30px 0 15px;
-}
+    .primary-btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      background: #2373ff;
+      color: white;
+      font-size: 16px;
+      font-weight: 700;
+    }
 
-.task,
-.money-box {
-    background: #111332;
-    border: 1px solid #292b50;
-    border-radius: 18px;
-    padding: 18px;
-    margin-bottom: 15px;
-}
+    .primary-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
 
-.task h3 {
-    margin-bottom: 8px;
-}
+    .secondary-btn {
+      width: 100%;
+      padding: 13px;
+      border: 1px solid #31417e;
+      border-radius: 12px;
+      background: transparent;
+      color: white;
+      font-weight: 700;
+    }
 
-.reward {
-    color: #45e68b;
-    font-size: 14px;
-}
+    .switch-auth {
+      margin-top: 18px;
+      text-align: center;
+      color: #aeb7d9;
+    }
 
-.task-buttons {
-    display: flex;
-    gap: 8px;
-    margin-top: 15px;
-}
+    .switch-auth span {
+      color: #4b91ff;
+      font-weight: 700;
+      cursor: pointer;
+    }
 
-.task-buttons button {
-    flex: 1;
-    margin: 0;
-}
+    /*
+    ==============================================
+    APP
+    ==============================================
+    */
 
-.open {
-    background: #20d968;
-    color: white;
-}
+    #mainPage {
+      min-height: 100vh;
+      padding-bottom: 90px;
+    }
 
-.claim {
-    background: #5142e8;
-    color: white;
-}
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 15px 17px;
+      background: rgba(7,11,43,0.96);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
 
-.withdraw-button {
-    background: #5142e8;
-    color: white;
-}
+    .brand {
+      font-size: 23px;
+      font-weight: 900;
+    }
 
-.deposit-button {
-    background: #20d968;
-    color: white;
-}
+    .brand span {
+      color: #4a91ff;
+    }
 
-.logout {
-    background: #d93636;
-    color: white;
-    width: 90%;
-}
+    .logout-btn {
+      border: 1px solid #34457e;
+      background: transparent;
+      color: #ffffff;
+      padding: 8px 12px;
+      border-radius: 10px;
+    }
 
-.message {
-    margin: 12px;
-}
+    .content {
+      padding: 17px;
+      max-width: 700px;
+      margin: auto;
+    }
 
-.bottom-nav {
-    position: fixed;
-    bottom: 12px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: calc(100% - 25px);
-    max-width: 460px;
-    background: #151633;
-    border: 1px solid #292b50;
-    border-radius: 22px;
-    padding: 10px;
-    display: flex;
-    justify-content: space-around;
-}
+    .section {
+      display: none;
+    }
 
-.nav-item {
-    text-align: center;
-    color: #aaa;
-    font-size: 12px;
-    cursor: pointer;
-}
+    .section.active {
+      display: block;
+    }
 
-.nav-icon {
-    display: block;
-    font-size: 22px;
-    margin-bottom: 4px;
-}
+    /*
+    ==============================================
+    CARDS
+    ==============================================
+    */
 
-.nav-item.active {
-    color: white;
-}
+    .card {
+      background: #101744;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 18px;
+      padding: 17px;
+      margin-bottom: 15px;
+      box-shadow:
+        0 10px 35px rgba(0,0,0,0.15);
+    }
 
-</style>
+    .card h3 {
+      margin-top: 0;
+    }
+
+    /*
+    ==============================================
+    BALANCE
+    ==============================================
+    */
+
+    .balance-card {
+      background:
+        linear-gradient(
+          135deg,
+          #1746b8,
+          #102261
+        );
+    }
+
+    .balance-label {
+      color: #cbd7ff;
+      font-size: 14px;
+    }
+
+    .balance {
+      font-size: 36px;
+      font-weight: 900;
+      margin: 8px 0;
+    }
+
+    .vip-badge {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.13);
+      color: white;
+      font-size: 13px;
+    }
+
+    /*
+    ==============================================
+    QUICK ACTIONS
+    ==============================================
+    */
+
+    .quick-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 15px;
+    }
+
+    .quick-btn {
+      border: none;
+      border-radius: 16px;
+      padding: 16px 10px;
+      background: #101744;
+      color: white;
+      border: 1px solid #25356e;
+      font-weight: 700;
+    }
+
+    .quick-btn span {
+      display: block;
+      font-size: 24px;
+      margin-bottom: 5px;
+    }
+
+    /*
+    ==============================================
+    COMMUNITY
+    ==============================================
+    */
+
+    .community-card {
+      background:
+        linear-gradient(
+          135deg,
+          #101744,
+          #10265b
+        );
+    }
+
+    .community-icon {
+      font-size: 34px;
+      margin-bottom: 8px;
+    }
+
+    .community-card h3 {
+      margin-bottom: 6px;
+    }
+
+    .reward-pill {
+      display: inline-block;
+      margin: 7px 0 13px;
+      padding: 7px 12px;
+      border-radius: 20px;
+      background: rgba(40,130,255,0.18);
+      color: #70aaff;
+      font-weight: 800;
+    }
+
+    .community-buttons {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 9px;
+    }
+
+    .community-btn {
+      width: 100%;
+      padding: 13px;
+      border: none;
+      border-radius: 12px;
+      background: #2373ff;
+      color: white;
+      font-weight: 800;
+    }
+
+    .community-claim {
+      width: 100%;
+      padding: 13px;
+      border: 1px solid #315195;
+      border-radius: 12px;
+      background: #142358;
+      color: white;
+      font-weight: 800;
+    }
+
+    .community-claim:disabled {
+      opacity: 0.55;
+    }
+
+    /*
+    ==============================================
+    VIP
+    ==============================================
+    */
+
+    .vip-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    .vip-card {
+      background: #101744;
+      border: 1px solid #273a79;
+      border-radius: 18px;
+      padding: 17px;
+    }
+
+    .vip-card.selected {
+      border-color: #3c8aff;
+      box-shadow:
+        0 0 0 2px rgba(60,138,255,0.15);
+    }
+
+    .vip-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .vip-title h3 {
+      margin: 0;
+    }
+
+    .price {
+      font-size: 24px;
+      font-weight: 900;
+      margin: 12px 0 5px;
+    }
+
+    .daily {
+      color: #70aaff;
+      margin-bottom: 14px;
+    }
+
+    .select-vip {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 11px;
+      background: #2373ff;
+      color: white;
+      font-weight: 800;
+    }
+
+    /*
+    ==============================================
+    PAYMENT
+    ==============================================
+    */
+
+    .opay-box {
+      border: 1px solid #294986;
+      background: #0d1940;
+      border-radius: 15px;
+      padding: 15px;
+    }
+
+    .opay-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .opay-row:last-child {
+      border-bottom: none;
+    }
+
+    .opay-value {
+      font-weight: 800;
+      text-align: right;
+      word-break: break-word;
+    }
+
+    /*
+    ==============================================
+    INVITE
+    ==============================================
+    */
+
+    .referral-link {
+      background: #080d31;
+      border: 1px solid #27356f;
+      padding: 12px;
+      border-radius: 11px;
+      word-break: break-all;
+      margin: 10px 0;
+      color: #bcd1ff;
+    }
+
+    .copy-btn {
+      width: 100%;
+      border: none;
+      border-radius: 11px;
+      padding: 12px;
+      background: #2373ff;
+      color: white;
+      font-weight: 800;
+    }
+
+    .referral-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 13px;
+    }
+
+    .stat-box {
+      background: #080d31;
+      border-radius: 13px;
+      padding: 13px;
+      text-align: center;
+    }
+
+    .stat-number {
+      font-size: 24px;
+      font-weight: 900;
+    }
+
+    /*
+    ==============================================
+    CLAIM
+    ==============================================
+    */
+
+    .claim-btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      background: #2373ff;
+      color: white;
+      font-weight: 800;
+    }
+
+    /*
+    ==============================================
+    TRANSACTIONS
+    ==============================================
+    */
+
+    .transaction {
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .transaction:last-child {
+      border-bottom: none;
+    }
+
+    .transaction-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .transaction-amount {
+      font-weight: 900;
+      color: #67a4ff;
+    }
+
+    /*
+    ==============================================
+    PAYMENT HISTORY
+    ==============================================
+    */
+
+    .payment-history {
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .payment-history:last-child {
+      border-bottom: none;
+    }
+
+    .status {
+      display: inline-block;
+      padding: 5px 9px;
+      border-radius: 15px;
+      font-size: 12px;
+      font-weight: 800;
+      margin-top: 6px;
+    }
+
+    .status.pending {
+      background: #55420a;
+      color: #ffd966;
+    }
+
+    .status.approved {
+      background: #0b5532;
+      color: #75f0ad;
+    }
+
+    .status.rejected {
+      background: #5b1d27;
+      color: #ff8999;
+    }
+
+    /*
+    ==============================================
+    WITHDRAWAL
+    ==============================================
+    */
+
+    .withdraw-card {
+      background:
+        linear-gradient(
+          135deg,
+          #101744,
+          #10265b
+        );
+    }
+
+    .withdraw-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .withdraw-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(35,115,255,0.18);
+      font-size: 25px;
+    }
+
+    .withdraw-window {
+      margin: 13px 0;
+      padding: 12px;
+      border-radius: 12px;
+      background: #080d31;
+      border: 1px solid #27356f;
+    }
+
+    .withdraw-open {
+      color: #75f0ad;
+      font-weight: 800;
+    }
+
+    .withdraw-closed {
+      color: #ff8999;
+      font-weight: 800;
+    }
+
+    .withdraw-label {
+      display: block;
+      margin-bottom: 7px;
+      color: #cbd7ff;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .withdraw-note {
+      margin-top: 5px;
+      margin-bottom: 15px;
+      color: #aeb7d9;
+      font-size: 13px;
+    }
+
+    .withdraw-submit {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      background: #2373ff;
+      color: white;
+      font-weight: 800;
+      font-size: 15px;
+    }
+
+    .withdraw-submit:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .withdraw-history {
+      padding: 14px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+
+    .withdraw-history:last-child {
+      border-bottom: none;
+    }
+
+    .withdraw-history-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 7px;
+    }
+
+    .withdraw-amount {
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .withdraw-bank {
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .withdraw-detail {
+      color: #aeb7d9;
+      font-size: 13px;
+      margin-top: 4px;
+    }
+
+    .rejection-reason {
+      margin-top: 8px;
+      padding: 9px;
+      border-radius: 10px;
+      background: rgba(255,60,80,0.08);
+      color: #ff9daa;
+      font-size: 13px;
+    }
+
+    /*
+    ==============================================
+    BOTTOM NAV
+    ==============================================
+    */
+
+    .bottom-nav {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 30;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      background: rgba(8,12,42,0.97);
+      border-top: 1px solid rgba(255,255,255,0.08);
+      backdrop-filter: blur(15px);
+    }
+
+    .nav-btn {
+      border: none;
+      background: transparent;
+      color: #8793bf;
+      padding: 10px 4px;
+      font-size: 11px;
+    }
+
+    .nav-btn span {
+      display: block;
+      font-size: 21px;
+      margin-bottom: 3px;
+    }
+
+    .nav-btn.active {
+      color: #5d9bff;
+    }
+
+    /*
+    ==============================================
+    SMALL SCREEN
+    ==============================================
+    */
+
+    @media (min-width: 600px) {
+
+      .vip-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+    }
+
+  </style>
 
 </head>
 
 <body>
 
 
-<!-- HOME -->
+<!-- ==================================================
+AUTH PAGE
+================================================== -->
 
-<div id="homePage">
+<div id="authPage">
 
-    <h1>ZAVERO</h1>
-
-    <h2>Welcome to Zavero</h2>
-
-    <p style="margin:20px 0;">
-        Earn rewards by completing tasks and upgrading vip
-    </p>
-
-    <button
-        id="loginButton"
-        class="login"
-        type="button">
-        Login
-    </button>
-
-    <button
-        id="signupButton"
-        class="signup"
-        type="button">
-        Sign Up
-    </button>
-
-</div>
-
-
-<!-- LOGIN -->
-
-<div id="loginPage" class="box">
-
-    <h2>🔐 Login</h2>
-
-    <input
-        id="loginName"
-        type="text"
-        placeholder="Enter your name">
-
-    <input
-        id="loginPassword"
-        type="password"
-        placeholder="Enter your password">
-
-    <button
-        id="loginSubmit"
-        class="login"
-        type="button">
-        Login
-    </button>
-
-    <button
-        id="loginBack"
-        type="button">
-        Back
-    </button>
-
-    <p
-        id="loginMessage"
-        class="message">
-    </p>
-
-</div>
-
-
-<!-- SIGN UP -->
-
-<div id="signupPage" class="box">
-
-    <h2>📝 Create Account</h2>
-
-    <input
-        id="signupName"
-        type="text"
-        placeholder="Enter your name">
-
-    <input
-        id="signupEmail"
-        type="email"
-        placeholder="Enter your email">
-
-    <input
-        id="signupPassword"
-        type="password"
-        placeholder="Create password">
-
-    <input
-        id="signupConfirm"
-        type="password"
-        placeholder="Confirm password">
-
-    <button
-        id="signupSubmit"
-        class="signup"
-        type="button">
-        Sign Up
-    </button>
-
-    <button
-        id="signupBack"
-        type="button">
-        Back
-    </button>
-
-    <p
-        id="signupMessage"
-        class="message">
-    </p>
-
-</div>
-
-
-<!-- DASHBOARD -->
-
-<div id="dashboard" class="app">
+  <div class="auth-box">
 
     <div class="logo">
-        ZAVERO
+
+      <div class="logo-z">
+        Z
+      </div>
+
+      <h1>ZAVERO</h1>
+
+      <p>
+        Earning Platform
+      </p>
+
     </div>
 
-    <div class="welcome">
-        Welcome,
-        <span id="userName"></span> 👋
+
+    <!-- LOGIN -->
+
+    <div id="loginBox">
+
+      <h2>
+        Login
+      </h2>
+
+      <input
+        id="loginEmail"
+        type="email"
+        placeholder="Email"
+      >
+
+      <input
+        id="loginPassword"
+        type="password"
+        placeholder="Password"
+      >
+
+      <button
+        class="primary-btn"
+        onclick="loginUser()"
+      >
+        Login
+      </button>
+
+      <div
+        id="loginMessage"
+        class="message hidden"
+      ></div>
+
+      <div class="switch-auth">
+
+        Don't have an account?
+
+        <span onclick="showSignup()">
+          Create account
+        </span>
+
+      </div>
+
     </div>
 
 
-    <!-- BALANCE -->
+    <!-- SIGNUP -->
 
-    <div class="balance-card">
+    <div
+      id="signupBox"
+      class="hidden"
+    >
 
-        <div class="balance-title">
-            TOTAL BALANCE
+      <h2>
+        Create Account
+      </h2>
+
+      <input
+        id="signupName"
+        type="text"
+        placeholder="Full name"
+      >
+
+      <input
+        id="signupEmail"
+        type="email"
+        placeholder="Email"
+      >
+
+      <input
+        id="signupPassword"
+        type="password"
+        placeholder="Password"
+      >
+
+      <input
+        id="signupReferral"
+        type="text"
+        placeholder="Referral code (optional)"
+      >
+
+      <button
+        class="primary-btn"
+        onclick="signupUser()"
+      >
+        Create Account
+      </button>
+
+      <div
+        id="signupMessage"
+        class="message hidden"
+      ></div>
+
+      <div class="switch-auth">
+
+        Already have an account?
+
+        <span onclick="showLogin()">
+          Login
+        </span>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- ==================================================
+MAIN PAGE
+================================================== -->
+
+<div
+  id="mainPage"
+  class="hidden"
+>
+
+  <div class="topbar">
+
+    <div class="brand">
+      za<span>vero</span>
+    </div>
+
+    <button
+      class="logout-btn"
+      onclick="logoutUser()"
+    >
+      Logout
+    </button>
+
+  </div>
+
+
+  <div class="content">
+
+
+    <!-- ==================================================
+    HOME
+    ================================================== -->
+
+    <section
+      id="homeSection"
+      class="section active"
+    >
+
+      <div class="card balance-card">
+
+        <div class="balance-label">
+          Available Wallet Balance
         </div>
 
         <div class="balance">
-            ₦<span id="balance">0</span>
+          ₦<span id="summaryBalance">0</span>
         </div>
 
-        <div class="earned">
-            Total earned:
-            ₦<span id="earnings">0</span>
+        <div class="vip-badge">
+          <span id="summaryVIP">
+            VIP 0
+          </span>
         </div>
 
-    </div>
+      </div>
 
 
-    <!-- TASKS -->
+      <div class="quick-actions">
 
-    <div class="section-title">
-        Social Tasks · Earn Rewards
-    </div>
+        <button
+          class="quick-btn"
+          onclick="openVIP()"
+        >
+          <span>⭐</span>
+          VIP Plans
+        </button>
+
+        <button
+          class="quick-btn"
+          onclick="openWalletWithdraw()"
+        >
+          <span>💸</span>
+          Withdraw
+        </button>
+
+      </div>
 
 
-    <div class="task">
+      <!-- COMMUNITY -->
+
+      <div class="card community-card">
+
+        <div class="community-icon">
+          💬
+        </div>
 
         <h3>
-            💬 Join our community
+          Zavero Community
         </h3>
 
-        <div class="reward">
-            +₦100 · One time only
+        <p class="muted">
+          Join the official Zavero WhatsApp
+          Channel for updates, announcements
+          and platform news.
+        </p>
+
+        <div class="reward-pill">
+          🎁 Community Reward: ₦400
         </div>
 
-        <div class="task-buttons">
+        <div class="community-buttons">
 
-            <button
-                class="open"
-                id="openTask1"
-                type="button">
-                Open ↗
-            </button>
+          <button
+            class="community-btn"
+            onclick="joinCommunity()"
+          >
+            Join WhatsApp Channel
+          </button>
 
-            <button
-                class="claim"
-                id="claimTask1"
-                type="button">
-                Claim ₦100
-            </button>
+          <button
+            id="communityClaimBtn"
+            class="community-claim"
+            onclick="claimCommunityReward()"
+          >
+            Claim ₦400
+          </button>
 
         </div>
 
-    </div>
+        <div
+          id="communityMessage"
+          class="message hidden"
+        ></div>
+
+      </div>
 
 
-    <div class="task">
+      <!-- DAILY VIP -->
+
+      <div class="card">
 
         <h3>
-            📱 Complete a simple task
+          Daily VIP Earnings
         </h3>
 
-        <div class="reward">
-            +₦250 · One time only
+        <p
+          id="homeDailyReward"
+          class="muted"
+        >
+          Activate a VIP plan to start
+          receiving daily rewards.
+        </p>
+
+        <button
+          class="claim-btn"
+          onclick="claimVIP()"
+        >
+          Claim Daily Reward
+        </button>
+
+        <div
+          id="claimMessage"
+          class="message hidden"
+        ></div>
+
+      </div>
+
+
+      <!-- WALLET OVERVIEW -->
+
+      <div class="card">
+
+        <h3>
+          Wallet Overview
+        </h3>
+
+        <p class="muted">
+          Your approved VIP rewards,
+          community reward and referral
+          rewards are added to your wallet.
+        </p>
+
+      </div>
+
+
+      <!-- TRANSACTIONS -->
+
+      <div class="card">
+
+        <h3>
+          Recent Transactions
+        </h3>
+
+        <div id="homeTransactions">
+
+          <p class="muted">
+            Loading transactions...
+          </p>
+
         </div>
 
-        <div class="task-buttons">
+      </div>
 
-            <button
-                class="open"
-                id="openTask2"
-                type="button">
-                Start
-            </button>
+    </section>
 
-            <button
-                class="claim"
-                id="claimTask2"
-                type="button">
-                Claim ₦250
-            </button>
+
+    <!-- ==================================================
+    VIP SECTION
+    ================================================== -->
+
+    <section
+      id="vipSection"
+      class="section"
+    >
+
+      <div class="card">
+
+        <h2>
+          VIP Plans
+        </h2>
+
+        <p class="muted">
+          Select a VIP plan, make the exact
+          payment to the Zavero OPay account,
+          then submit your OPay transaction
+          reference for approval.
+        </p>
+
+      </div>
+
+      <div
+        id="vipPlans"
+        class="vip-grid"
+      ></div>
+
+    </section>
+
+
+    <!-- ==================================================
+    INVITE SECTION
+    ================================================== -->
+
+    <section
+      id="inviteSection"
+      class="section"
+    >
+
+      <div class="card">
+
+        <h2>
+          Invite Friends
+        </h2>
+
+        <p class="muted">
+          Share your referral link.
+          When someone joins through your
+          referral and their first VIP payment
+          is approved, you receive ₦500.
+        </p>
+
+        <div
+          id="referralLink"
+          class="referral-link"
+        >
+          Loading referral link...
+        </div>
+
+        <button
+          class="copy-btn"
+          onclick="copyInviteLink()"
+        >
+          Copy Referral Link
+        </button>
+
+      </div>
+
+
+      <div class="card">
+
+        <h3>
+          Referral Statistics
+        </h3>
+
+        <div class="referral-stats">
+
+          <div class="stat-box">
+
+            <div
+              id="totalReferrals"
+              class="stat-number"
+            >
+              0
+            </div>
+
+            <div class="muted">
+              Referrals
+            </div>
+
+          </div>
+
+
+          <div class="stat-box">
+
+            <div
+              id="paidReferrals"
+              class="stat-number"
+            >
+              0
+            </div>
+
+            <div class="muted">
+              VIP Activated
+            </div>
+
+          </div>
 
         </div>
 
-    </div>
+        <div
+          id="referralMessage"
+          class="message hidden"
+        ></div>
+
+      </div>
+
+    </section>
 
 
-    <button
-        class="login"
-        id="tasksButton"
-        type="button">
-        📋 View All Tasks
-    </button>
+    <!-- ==================================================
+    WALLET SECTION
+    ================================================== -->
+
+    <section
+      id="walletSection"
+      class="section"
+    >
+
+      <!-- BALANCE -->
+
+      <div class="card balance-card">
+
+        <div class="balance-label">
+          Wallet Balance
+        </div>
+
+        <div class="balance">
+          ₦<span id="walletBalance">
+            0
+          </span>
+        </div>
+
+      </div>
 
 
-    <!-- WITHDRAW -->
+      <!-- WITHDRAWAL -->
 
-    <div class="section-title">
-        💸 Withdraw Money
-    </div>
+      <div class="card withdraw-card">
 
-    <div class="money-box">
+        <div class="withdraw-header">
 
-        <select id="bankName">
+          <div>
+
+            <h2 style="margin:0;">
+              Withdraw Money
+            </h2>
+
+            <p
+              class="muted"
+              style="margin-bottom:0;"
+            >
+              Withdraw your available wallet
+              balance to your bank account.
+            </p>
+
+          </div>
+
+          <div class="withdraw-icon">
+            💸
+          </div>
+
+        </div>
+
+
+        <!-- WITHDRAWAL WINDOW -->
+
+        <div class="withdraw-window">
+
+          <div
+            id="withdrawWindowStatus"
+            class="withdraw-closed"
+          >
+            Withdrawal is currently closed.
+          </div>
+
+          <div
+            id="withdrawWindowText"
+            class="muted"
+            style="margin-top:6px;"
+          >
+            Withdrawals are available every
+            Sunday from 10:00 AM to 5:00 PM.
+          </div>
+
+        </div>
+
+
+        <!-- MINIMUM -->
+
+        <div class="message">
+
+          Minimum withdrawal:
+          <strong>₦5,000</strong>
+
+          <br><br>
+
+          Your current balance:
+          <strong>
+            ₦<span id="withdrawAvailableBalance">
+              0
+            </span>
+          </strong>
+
+        </div>
+
+
+        <!-- WITHDRAW FORM -->
+
+        <div
+          id="withdrawForm"
+          style="margin-top:15px;"
+        >
+
+          <label
+            class="withdraw-label"
+            for="withdrawBank"
+          >
+            Select Bank
+          </label>
+
+          <select
+            id="withdrawBank"
+          >
 
             <option value="">
-                Select Bank
+              Select your bank
             </option>
 
-            <option>Opay</option>
-            <option>Moniepoint</option>
-            <option>PalmPay</option>
-            <option>Access Bank</option>
-            <option>GTBank</option>
-            <option>First Bank</option>
-            <option>UBA</option>
-            <option>Zenith Bank</option>
+            <option value="OPay">
+              OPay
+            </option>
 
-        </select>
+            <option value="PalmPay">
+              PalmPay
+            </option>
 
-        <input
-            id="accountNumber"
+            <option value="Moniepoint">
+              Moniepoint
+            </option>
+
+            <option value="Access Bank">
+              Access Bank
+            </option>
+
+            <option value="GTBank">
+              GTBank
+            </option>
+
+            <option value="First Bank">
+              First Bank
+            </option>
+
+            <option value="UBA">
+              UBA
+            </option>
+
+            <option value="Zenith Bank">
+              Zenith Bank
+            </option>
+
+            <option value="Fidelity Bank">
+              Fidelity Bank
+            </option>
+
+            <option value="Union Bank">
+              Union Bank
+            </option>
+
+            <option value="Sterling Bank">
+              Sterling Bank
+            </option>
+
+            <option value="Stanbic IBTC">
+              Stanbic IBTC
+            </option>
+
+            <option value="FCMB">
+              FCMB
+            </option>
+
+            <option value="Ecobank">
+              Ecobank
+            </option>
+
+            <option value="Wema Bank">
+              Wema Bank
+            </option>
+
+            <option value="Keystone Bank">
+              Keystone Bank
+            </option>
+
+            <option value="Polaris Bank">
+              Polaris Bank
+            </option>
+
+            <option value="Other">
+              Other
+            </option>
+
+          </select>
+
+
+          <label
+            class="withdraw-label"
+            for="withdrawAccountName"
+          >
+            Account Name
+          </label>
+
+          <input
+            id="withdrawAccountName"
             type="text"
-            placeholder="Account Number">
+            placeholder="Name on bank account"
+          >
 
-        <input
-            id="accountName"
-            type="text"
-            placeholder="Account Name">
 
-        <input
+          <label
+            class="withdraw-label"
+            for="withdrawAccountNumber"
+          >
+            Account Number
+          </label>
+
+          <input
+            id="withdrawAccountNumber"
+            type="tel"
+            inputmode="numeric"
+            maxlength="10"
+            placeholder="10-digit account number"
+          >
+
+
+          <label
+            class="withdraw-label"
+            for="withdrawAmount"
+          >
+            Withdrawal Amount
+          </label>
+
+          <input
             id="withdrawAmount"
             type="number"
-            placeholder="Amount">
+            inputmode="numeric"
+            min="5000"
+            step="100"
+            placeholder="Minimum ₦5,000"
+          >
 
-        <button
-            id="withdrawButton"
-            class="withdraw-button"
-            type="button">
-            Submit Withdrawal
-        </button>
+          <div class="withdraw-note">
+            You can only request a withdrawal when
+            your balance is at least ₦5,000 and the
+            withdrawal window is open.
+          </div>
 
-        <p
+
+          <button
+            id="withdrawSubmitBtn"
+            class="withdraw-submit"
+            onclick="submitWithdrawal()"
+            disabled
+          >
+            Request Withdrawal
+          </button>
+
+
+          <div
             id="withdrawMessage"
-            class="message">
+            class="message hidden"
+          ></div>
+
+        </div>
+
+      </div>
+
+
+      <!-- WITHDRAWAL HISTORY -->
+
+      <div class="card">
+
+        <h3>
+          Withdrawal History
+        </h3>
+
+        <p class="muted">
+          Your withdrawal requests and their
+          approval status will appear here.
         </p>
 
-    </div>
+        <div id="withdrawalHistory">
+
+          <p class="muted">
+            Loading withdrawal history...
+          </p>
+
+        </div>
+
+      </div>
 
 
-    <!-- DEPOSIT -->
+      <!-- TRANSACTION HISTORY -->
 
-    <div class="section-title">
-        💰 Add Money
-    </div>
+      <div class="card">
 
-    <div class="money-box">
+        <h3>
+          Transaction History
+        </h3>
 
-        <input
-            id="depositAmount"
-            type="number"
-            placeholder="Enter amount">
+        <div id="transactions">
 
-        <button
-            id="depositButton"
-            class="deposit-button"
-            type="button">
-            Pay
-        </button>
+          <p class="muted">
+            Loading...
+          </p>
 
-        <p
-            id="depositMessage"
-            class="message">
+        </div>
+
+      </div>
+
+
+      <!-- VIP PAYMENT HISTORY -->
+
+      <div class="card">
+
+        <h3>
+          VIP Payment History
+        </h3>
+
+        <div id="paymentHistory">
+
+          <p class="muted">
+            Loading...
+          </p>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- ==================================================
+    OPAY SECTION
+    ================================================== -->
+
+    <section
+      id="opaySection"
+      class="section"
+    >
+
+      <div class="card">
+
+        <h2>
+          Pay VIP
+        </h2>
+
+        <p class="muted">
+          First select a VIP plan.
+          Then transfer the exact amount
+          shown below to the Zavero OPay account.
         </p>
 
-    </div>
+      </div>
 
 
-    <!-- LOGOUT -->
+      <div
+        id="selectedVIPBox"
+        class="card hidden"
+      >
 
-    <button
-        id="logoutButton"
-        class="logout"
-        type="button">
-        🚪 Logout
-    </button>
+        <h3>
+          Selected VIP
+        </h3>
 
-</div>
+        <p>
 
-<!-- TOP PAGE -->
+          <strong id="selectedVIPName">
+            VIP 1
+          </strong>
 
-<div id="topPage" style="display:none; max-width:480px; margin:auto; padding:20px;">
+        </p>
 
-    <h2 style="text-align:center; color:#7667ff; margin-bottom:10px;">
-        🏆 VIP MEMBERSHIP
-    </h2>
+        <p>
 
-    <p style="text-align:center; color:#aaa; margin-bottom:25px;">
-        Upgrade your VIP level
-    </p>
+          Amount:
 
-    <div class="task">
-        <h3>VIP 1</h3>
-        <p style="color:#ffd84d;">₦1,500</p>
-        <p style="color:#45e68b;">Daily Claim: ₦200</p>
-        <button class="login" type="button" id="vip1Upgrade">Upgrade</button>
-    </div>
+          <strong>
 
-    <div class="task">
-        <h3>VIP 2</h3>
-        <p style="color:#ffd84d;">₦5,000</p>
-        <p style="color:#45e68b;">Daily Claim: ₦800</p>
-        <button class="login" type="button" id="vip2Upgrade">Upgrade</button>
-    </div>
+            ₦<span id="selectedVIPAmount">
+              0
+            </span>
 
-    <div class="task">
-        <h3>VIP 3</h3>
-        <p style="color:#ffd84d;">₦10,000</p>
-        <p style="color:#45e68b;">Daily Claim: ₦1,750</p>
-        <button class="login" type="button" id="vip3Upgrade">Upgrade</button>
-    </div>
+          </strong>
 
-    <div class="task">
-        <h3>VIP 4</h3>
-        <p style="color:#ffd84d;">₦25,000</p>
-        <p style="color:#45e68b;">Daily Claim: ₦4,100</p>
-        <button class="login" type="button" id="vip4Upgrade">Upgrade</button>
-    </div>
-
-    <div class="task">
-        <h3>VIP 5</h3>
-        <p style="color:#ffd84d;">₦50,000</p>
-        <p style="color:#45e68b;">Daily Claim: ₦7,500</p>
-        <button class="login" type="button" id="vip5Upgrade">Upgrade</button>
-    </div>
-
-    <div class="task">
-        <h3>VIP 6</h3>
-        <p style="color:#ffd84d;">₦100,000</p>
-        <p style="color:#45e68b;">Daily Claim: ₦15,000</p>
-        <button class="login" type="button" id="vip6Upgrade">Upgrade</button>
-    </div>
-
-    <button
-        id="backFromTop"
-        type="button">
-        ← Back
-    </button>
-
-</div>
-  
-<!-- BOTTOM NAVIGATION -->
-
-<div class="bottom-nav">
-
-    <div
-        class="nav-item active"
-        id="homeNav">
-
-        <span class="nav-icon">
-            ⌂
-        </span>
-
-        Home
-
-    </div>
+        </p>
 
 
-    <div
-        class="nav-item"
-        id="earnNav">
+        <div class="opay-box">
 
-        <span class="nav-icon">
-            ϟ
-        </span>
+          <div class="opay-row">
 
-        Earn
+            <div>
+              Account Name
+            </div>
 
-    </div>
+            <div
+              id="opayAccountName"
+              class="opay-value"
+            >
+              Loading...
+            </div>
+
+          </div>
 
 
+          <div class="opay-row">
 
-        <div class="nav-item" id="topNav">
+            <div>
+              OPay Account Number
+            </div>
 
-    <span class="nav-icon">
-        🏆
-    </span>
+            <div
+              id="opayAccountNumber"
+              class="opay-value"
+            >
+              Loading...
+            </div>
 
-    Top
+          </div>
 
         </div>
 
 
-    <div class="nav-item">
-
-        <span class="nav-icon">
-            ♧
-        </span>
-
-        Invite
-
-    </div>
+        <br>
 
 
-    <div class="nav-item">
+        <p class="muted">
+          After making the transfer, enter
+          the OPay transaction/reference number.
+        </p>
 
-        <span class="nav-icon">
-            ▣
-        </span>
 
-        Wallet
+        <input
+          id="opayReference"
+          type="text"
+          placeholder="OPay transaction reference"
+        >
 
-    </div>
+
+        <button
+          class="primary-btn"
+          onclick="submitVIPPayment()"
+        >
+          Submit Payment
+        </button>
+
+
+        <div
+          id="paymentMessage"
+          class="message hidden"
+        ></div>
+
+      </div>
+
+
+      <div class="card">
+
+        <h3>
+          Payment History
+        </h3>
+
+        <div id="opayPaymentHistory">
+
+          <p class="muted">
+            Loading...
+          </p>
+
+        </div>
+
+      </div>
+
+    </section>
+
+  </div>
+
+
+  <!-- ==================================================
+  BOTTOM NAV
+  ================================================== -->
+
+  <nav class="bottom-nav">
+
+    <button
+      id="homeNav"
+      class="nav-btn active"
+      onclick="showSection('home')"
+    >
+      <span>🏠</span>
+      Home
+    </button>
+
+
+    <button
+      id="vipNav"
+      class="nav-btn"
+      onclick="showSection('vip')"
+    >
+      <span>⭐</span>
+      VIP
+    </button>
+
+
+    <button
+      id="inviteNav"
+      class="nav-btn"
+      onclick="showSection('invite')"
+    >
+      <span>👥</span>
+      Invite
+    </button>
+
+
+    <button
+      id="walletNav"
+      class="nav-btn"
+      onclick="showSection('wallet')"
+    >
+      <span>💰</span>
+      Wallet
+    </button>
+
+
+    <button
+      id="opayNav"
+      class="nav-btn"
+      onclick="showSection('opay')"
+    >
+      <span>₦</span>
+      Pay VIP
+    </button>
+
+  </nav>
 
 </div>
 
 
 <script>
 
+  /*
+  ==================================================
+  BACKEND
+  ==================================================
+  */
 
-/* BACKEND */
-
-const BACKEND_URL =
-    "https://zavero-earning-platform-1.onrender.com";
-
-
-/* LOGIN PAGE */
-
-document
-.getElementById("loginButton")
-.addEventListener("click", function () {
-
-    document.getElementById("homePage").style.display = "none";
-
-    document.getElementById("signupPage").style.display = "none";
-
-    document.getElementById("dashboard").style.display = "none";
-
-    document.getElementById("loginPage").style.display = "block";
-
-});
+  const BACKEND_URL =
+    "https://zavero-earning-platform.onrender.com";
 
 
-/* SIGNUP PAGE */
+  /*
+  ==================================================
+  VIP PLANS
+  ==================================================
+  */
 
-document
-.getElementById("signupButton")
-.addEventListener("click", function () {
+  const VIP_PLANS = {
 
-    document.getElementById("homePage").style.display = "none";
+    1: {
+      name: "VIP 1",
+      price: 1500,
+      dailyReward: 200
+    },
 
-    document.getElementById("loginPage").style.display = "none";
+    2: {
+      name: "VIP 2",
+      price: 5000,
+      dailyReward: 800
+    },
 
-    document.getElementById("dashboard").style.display = "none";
+    3: {
+      name: "VIP 3",
+      price: 10000,
+      dailyReward: 1750
+    },
 
-    document.getElementById("signupPage").style.display = "block";
+    4: {
+      name: "VIP 4",
+      price: 25000,
+      dailyReward: 4100
+    },
 
-});
+    5: {
+      name: "VIP 5",
+      price: 50000,
+      dailyReward: 7500
+    },
 
+    6: {
+      name: "VIP 6",
+      price: 100000,
+      dailyReward: 15000
+    }
 
-/* LOGIN BACK */
-
-document
-.getElementById("loginBack")
-.addEventListener("click", function () {
-
-    document.getElementById("loginPage").style.display = "none";
-
-    document.getElementById("homePage").style.display = "block";
-
-});
-
-
-/* SIGNUP BACK */
-
-document
-.getElementById("signupBack")
-.addEventListener("click", function () {
-
-    document.getElementById("signupPage").style.display = "none";
-
-    document.getElementById("homePage").style.display = "block";
-
-});
+  };
 
 
-/* SIGN UP */
+  /*
+  ==================================================
+  COMMUNITY
+  ==================================================
+  */
 
-document
-.getElementById("signupSubmit")
-.addEventListener("click", function () {
+  const COMMUNITY_LINK =
+    "https://whatsapp.com/channel/0029Vb8uujR3QxRyuLbfKg1F";
+
+
+  /*
+  ==================================================
+  WITHDRAWAL SETTINGS
+  ==================================================
+  */
+
+  const MIN_WITHDRAWAL =
+    5000;
+
+  const WITHDRAWAL_DAY =
+    0;
+  /*
+  JavaScript:
+  0 = Sunday
+  */
+
+  const WITHDRAWAL_START_HOUR =
+    10;
+
+  const WITHDRAWAL_END_HOUR =
+    17;
+
+
+  let currentUser =
+    JSON.parse(
+      localStorage.getItem(
+        "zaveroUser"
+      ) || "null"
+    );
+
+
+  let selectedVIP = null;
+
+
+  /*
+  ==================================================
+  PAGE START
+  ==================================================
+  */
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+
+      if (currentUser) {
+
+        showMainPage();
+
+      } else {
+
+        showAuthPage();
+
+      }
+
+    }
+  );
+
+
+  /*
+  ==================================================
+  AUTH UI
+  ==================================================
+  */
+
+  function showAuthPage() {
+
+    document
+      .getElementById("authPage")
+      .classList.remove("hidden");
+
+    document
+      .getElementById("mainPage")
+      .classList.add("hidden");
+
+  }
+
+
+  function showMainPage() {
+
+    document
+      .getElementById("authPage")
+      .classList.add("hidden");
+
+    document
+      .getElementById("mainPage")
+      .classList.remove("hidden");
+
+    renderVIPPlans();
+
+    loadAllData();
+
+    updateWithdrawalWindow();
+
+  }
+
+
+  function showLogin() {
+
+    document
+      .getElementById("loginBox")
+      .classList.remove("hidden");
+
+    document
+      .getElementById("signupBox")
+      .classList.add("hidden");
+
+  }
+
+
+  function showSignup() {
+
+    document
+      .getElementById("loginBox")
+      .classList.add("hidden");
+
+    document
+      .getElementById("signupBox")
+      .classList.remove("hidden");
+
+  }
+
+
+  /*
+  ==================================================
+  SIGNUP
+  ==================================================
+  */
+
+  async function signupUser() {
 
     const name =
-        document.getElementById("signupName").value.trim();
+      document
+        .getElementById("signupName")
+        .value
+        .trim();
+
 
     const email =
-        document.getElementById("signupEmail").value.trim();
+      document
+        .getElementById("signupEmail")
+        .value
+        .trim();
+
 
     const password =
-        document.getElementById("signupPassword").value;
+      document
+        .getElementById("signupPassword")
+        .value;
 
-    const confirm =
-        document.getElementById("signupConfirm").value;
+
+    const referral =
+      document
+        .getElementById("signupReferral")
+        .value
+        .trim();
+
 
     const message =
-        document.getElementById("signupMessage");
+      document.getElementById(
+        "signupMessage"
+      );
 
 
     if (
-        name === "" ||
-        email === "" ||
-        password === "" ||
-        confirm === ""
+      !name ||
+      !email ||
+      !password
     ) {
 
-        message.innerText =
-            "Please fill in all fields.";
+      showMessage(
+        message,
+        "Please fill in all required fields."
+      );
 
-        message.style.color =
-            "red";
-
-        return;
-
-    }
-
-
-    if (password.length < 6) {
-
-        message.innerText =
-            "Password must be at least 6 characters.";
-
-        message.style.color =
-            "red";
-
-        return;
+      return;
 
     }
-
-
-    if (password !== confirm) {
-
-        message.innerText =
-            "Passwords do not match.";
-
-        message.style.color =
-            "red";
-
-        return;
-
-    }
-
-
-    localStorage.setItem(
-        "zaveroName",
-        name
-    );
-
-    localStorage.setItem(
-        "zaveroEmail",
-        email
-    );
-
-    localStorage.setItem(
-        "zaveroPassword",
-        password
-    );
-
-    localStorage.setItem(
-        "zaveroBalance",
-        "0"
-    );
-
-    localStorage.setItem(
-        "zaveroEarnings",
-        "0"
-    );
-
-
-    showDashboard(name);
-
-});
-
-
-/* LOGIN */
-
-document
-.getElementById("loginSubmit")
-.addEventListener("click", function () {
-
-    const name =
-        document.getElementById("loginName").value.trim();
-
-    const password =
-        document.getElementById("loginPassword").value;
-
-    const savedName =
-        localStorage.getItem("zaveroName");
-
-    const savedPassword =
-        localStorage.getItem("zaveroPassword");
-
-    const message =
-        document.getElementById("loginMessage");
-
-
-    if (
-        name === "" ||
-        password === ""
-    ) {
-
-        message.innerText =
-            "Please enter your name and password.";
-
-        message.style.color =
-            "red";
-
-        return;
-
-    }
-
-
-    if (
-        name === savedName &&
-        password === savedPassword
-    ) {
-
-        showDashboard(name);
-
-    } else {
-
-        message.innerText =
-            "Incorrect name or password.";
-
-        message.style.color =
-            "red";
-
-    }
-
-});
-
-
-/* SHOW DASHBOARD */
-
-function showDashboard(name) {
-
-    document.getElementById("homePage").style.display = "none";
-
-    document.getElementById("loginPage").style.display = "none";
-
-    document.getElementById("signupPage").style.display = "none";
-
-    document.getElementById("dashboard").style.display = "block";
-
-
-    document.getElementById("userName").innerText =
-        name;
-
-
-    fetch(
-        BACKEND_URL +
-        "/balance?email=" +
-        encodeURIComponent(
-            localStorage.getItem("zaveroEmail")
-        )
-    )
-
-    .then(response =>
-        response.json()
-    )
-
-    .then(data => {
-
-        if (data.success) {
-
-            document.getElementById("balance").innerText =
-                Number(
-                    data.balance
-                ).toLocaleString();
-
-        }
-
-    })
-
-    .catch(error => {
-
-        console.error(
-            "Balance error:",
-            error
-        );
-
-    });
-
-
-    document.getElementById("earnings").innerText =
-        localStorage.getItem(
-            "zaveroEarnings"
-        ) || "0";
-
-}
-
-
-/* ALL TASKS */
-
-document
-.getElementById("tasksButton")
-.addEventListener("click", function () {
-
-    window.location.href =
-        "tasks.html";
-
-});
-
-
-/* TASK 1 */
-
-document
-.getElementById("openTask1")
-.addEventListener("click", function () {
-
-    alert(
-        "Task link will be added here."
-    );
-
-});
-
-
-document
-.getElementById("claimTask1")
-.addEventListener("click", function () {
-
-    alert(
-        "Task verification will be connected later."
-    );
-
-});
-
-
-/* TASK 2 */
-
-document
-.getElementById("openTask2")
-.addEventListener("click", function () {
-
-    alert(
-        "Task link will be added here."
-    );
-
-});
-
-
-document
-.getElementById("claimTask2")
-.addEventListener("click", function () {
-
-    alert(
-        "Task verification will be connected later."
-    );
-
-});
-
-
-/* WITHDRAW */
-
-document
-.getElementById("withdrawButton")
-.addEventListener("click", function () {
-
-    const bank =
-        document.getElementById("bankName").value;
-
-    const accountNumber =
-        document.getElementById("accountNumber").value.trim();
-
-    const accountName =
-        document.getElementById("accountName").value.trim();
-
-    const amount =
-        document.getElementById("withdrawAmount").value;
-
-    const message =
-        document.getElementById("withdrawMessage");
-
-
-    if (
-        bank === "" ||
-        accountNumber === "" ||
-        accountName === "" ||
-        amount === ""
-    ) {
-
-        message.innerText =
-            "Please fill in all withdrawal details.";
-
-        message.style.color =
-            "red";
-
-        return;
-
-    }
-
-
-    message.innerText =
-        "Withdrawal request submitted.";
-
-    message.style.color =
-        "#20d968";
-
-});
-
-
-/* PAYSTACK DEPOSIT */
-
-document
-.getElementById("depositButton")
-.addEventListener("click", async function () {
-
-    const amount =
-        document.getElementById("depositAmount").value.trim();
-
-    const message =
-        document.getElementById("depositMessage");
-
-    const name =
-        localStorage.getItem(
-            "zaveroName"
-        );
-
-    const email =
-        localStorage.getItem(
-            "zaveroEmail"
-        );
-
-
-    if (
-        amount === "" ||
-        Number(amount) <= 0
-    ) {
-
-        message.innerText =
-            "Please enter a valid amount.";
-
-        message.style.color =
-            "red";
-
-        return;
-
-    }
-
-
-    if (
-        !name ||
-        !email
-    ) {
-
-        message.innerText =
-            "Please login again.";
-
-        message.style.color =
-            "red";
-
-        return;
-
-    }
-
-
-    message.innerText =
-        "Opening Paystack...";
-
-    message.style.color =
-        "#aaa";
 
 
     try {
 
-        const response =
-            await fetch(
-                BACKEND_URL +
-                "/initialize-payment",
-                {
+      const response =
+        await fetch(
+          `${BACKEND_URL}/signup`,
+          {
 
-                    method: "POST",
+            method: "POST",
 
-                    headers: {
-                        "Content-Type":
-                            "application/json"
-                    },
+            headers: {
+              "Content-Type":
+                "application/json"
+            },
 
-                    body: JSON.stringify({
+            body: JSON.stringify({
+              name,
+              email,
+              password,
+              referredBy:
+                referral || null
+            })
 
-                        name: name,
-
-                        email: email,
-
-                        amount:
-                            Number(amount)
-
-                    })
-
-                }
-            );
+          }
+        );
 
 
-        const data =
-            await response.json();
+      const data =
+        await response.json();
 
 
-        if (
-            data.success &&
-            data.authorization_url
-        ) {
+      if (!response.ok) {
 
-            window.location.href =
-                data.authorization_url;
+        showMessage(
+          message,
+          data.message ||
+            "Unable to create account."
+        );
 
-        } else {
+        return;
 
-            message.innerText =
-                data.message ||
-                "Could not start payment.";
+      }
 
-            message.style.color =
-                "red";
 
-        }
+      showMessage(
+        message,
+        "Account created successfully. You can now login."
+      );
+
+
+      document
+        .getElementById(
+          "signupPassword"
+        )
+        .value = "";
+
+
+      setTimeout(
+        () => {
+
+          showLogin();
+
+          document
+            .getElementById(
+              "loginEmail"
+            )
+            .value = email;
+
+        },
+        800
+      );
 
 
     } catch (error) {
 
-        console.error(
-            "Paystack error:",
-            error
-        );
+      console.error(error);
 
-        message.innerText =
-            "Could not connect to the server.";
-
-        message.style.color =
-            "red";
+      showMessage(
+        message,
+        "Unable to connect to Zavero server."
+      );
 
     }
 
-});
+  }
 
 
-/* LOGOUT */
+  /*
+  ==================================================
+  LOGIN
+  ==================================================
+  */
 
-document
-.getElementById("logoutButton")
-.addEventListener("click", function () {
+  async function loginUser() {
 
-    document.getElementById("dashboard").style.display =
-        "none";
-
-    document.getElementById("homePage").style.display =
-        "block";
-
-});
+    const email =
+      document
+        .getElementById("loginEmail")
+        .value
+        .trim();
 
 
-/* EARN
+    const password =
+      document
+        .getElementById("loginPassword")
+        .value;
+
+
+    const message =
+      document.getElementById(
+        "loginMessage"
+      );
+
+
+    if (
+      !email ||
+      !password
+    ) {
+
+      showMessage(
+        message,
+        "Enter your email and password."
+      );
+
+      return;
+
+    }
+
+
+    try {
+
+      const response =
+        await fetch(
+          `${BACKEND_URL}/login`,
+          {
+
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json"
+            },
+
+            body: JSON.stringify({
+              email,
+              password
+            })
+
+          }
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (!response.ok) {
+
+        showMessage(
+          message,
+          data.message ||
+            "Unable to login."
+        );
+
+        return;
+
+      }
+
+
+      currentUser =
+        data.user;
+
+
+      localStorage.setItem(
+        "zaveroUser",
+        JSON.stringify(
+          currentUser
+        )
+      );
+
+
+      showMainPage();
+
+
+    } catch (error) {
+
+      console.error(error);
+
+      showMessage(
+        message,
+        "Unable to connect to Zavero server."
+      );
+
+    }
+
+  }
+
+
+  /*
+  ==================================================
+  LOGOUT
+  ==================================================
+  */
+
+  function logoutUser() {
+
+    localStorage.removeItem(
+      "zaveroUser"
+    );
+
+    currentUser = null;
+
+    location.reload();
+
+  }
+
+
+  /*
+  ==================================================
+  LOAD ALL DATA
+  ==================================================
+  */
+
+  async function loadAllData() {
+
+    if (!currentUser) return;
+
+
+    await loadBalance();
+
+    await loadCommunityRewardStatus();
+
+    await loadTransactions();
+
+    await loadMyPayments();
+
+    await loadInviteLink();
+
+    await loadReferralStatus();
+
+    await loadWithdrawalHistory();
+
+    updateWithdrawalWindow();
+
+  }
+
+
+  /*
+  ==================================================
+  BALANCE
+  ==================================================
+  */
+
+  async function loadBalance() {
+
+    if (!currentUser) return;
+
+
+    try {
+
+      const response =
+        await fetch(
+          `${BACKEND_URL}/balance?email=${encodeURIComponent(
+            currentUser.email
+          )}`
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (!response.ok) {
+        return;
+      }
+
+
+      currentUser.balance =
+        Number(
+          data.balance || 0
+        );
+
+
+      currentUser.vip_level =
+        Number(
+          data.vip_level || 0
+        );
+
+
+      currentUser.last_vip_claim =
+        data.last_vip_claim;
+
+
+      localStorage.setItem(
+        "zaveroUser",
+        JSON.stringify(
+          currentUser
+        )
+      );
+
+
+      document
+        .getElementById(
+          "summaryBalance"
+        )
+        .textContent =
+        formatMoney(
+          currentUser.balance
+        );
+
+
+      document
+        .getElementById(
+          "walletBalance"
+        )
+        .textContent =
+        formatMoney(
+          currentUser.balance
+        );
+
+
+      document
+        .getElementById(
+          "withdrawAvailableBalance"
+        )
+        .textContent =
+        formatMoney(
+          currentUser.balance
+        );
+
+
+      document
+        .getElementById(
+          "summaryVIP"
+        )
+        .textContent =
+        `VIP ${currentUser.vip_level}`;
+
+
+      updateDailyRewardText();
+
+      updateWithdrawalWindow();
+
+
+    } catch (error) {
+
+      console.error(
+        "Balance error:",
+        error
+      );
+
+    }
+
+  }
+
+
+  /*
+  ==================================================
+  DAILY REWARD TEXT
+  ==================================================
+  */
+
+  function updateDailyRewardText() {
+
+    const level =
+      Number(
+        currentUser?.vip_level || 0
+      );
+
+
+    const element =
+      document.getElementById(
+        "homeDailyReward"
+      );
+
+
+    if (!level) {
+
+      element.textContent =
+        "Activate a VIP plan to start receiving daily rewards.";
+
+      return;
+
+    }
+
+
+    const plan =
+      VIP_PLANS[level];
+
+
+    element.textContent =
+      `${plan.name} gives you ₦${formatMoney(
+        plan.dailyReward
+      )} every 24 hours.`;
+
+  }
+
+
+  /*
+  ==================================================
+  VIP PLANS
+  ==================================================
+  */
+
+  function renderVIPPlans() {
+
+    const container =
+      document.getElementById(
+        "vipPlans"
+      );
+
+
+    container.innerHTML = "";
+
+
+    Object.keys(
+      VIP_PLANS
+    ).forEach(
+      level => {
+
+        const plan =
+          VIP_PLANS[level];
+
+
+        const card =
+          document.createElement(
+            "div"
+          );
+
+
+        card.className =
+          "vip-card";
+
+
+        card.innerHTML = `
+
+          <div class="vip-title">
+
+            <h3>
+              ⭐ ${escapeHTML(
+                plan.name
+              )}
+            </h3>
+
+            <span class="vip-badge">
+              Level ${level}
+            </span>
+
+          </div>
+
+
+          <div class="price">
+            ₦${formatMoney(
+              plan.price
+            )}
+          </div>
+
+
+          <div class="daily">
+            Daily Claim:
+            ₦${formatMoney(
+              plan.dailyReward
+            )}
+          </div>
+
+
+          <button
+            class="select-vip"
+            onclick="selectVIPForPayment(${level})"
+          >
+            Select ${escapeHTML(
+              plan.name
+            )}
+          </button>
+
+        `;
+
+
+        container.appendChild(
+          card
+        );
+
+      }
+    );
+
+  }
+
+
+  /*
+  ==================================================
+  SELECT VIP
+  ==================================================
+  */
+
+  function selectVIPForPayment(
+    level
+  ) {
+
+    level =
+      Number(level);
+
+
+    if (!VIP_PLANS[level]) {
+      return;
+    }
+
+
+    selectedVIP =
+      level;
+
+
+    showSection(
+      "opay"
+    );
+
+
+    displayOPayPayment();
+
+  }
+
+
+  function openVIP() {
+
+    showSection(
+      "vip"
+    );
+
+  }
+
+
+  function openOPay() {
+
+    showSection(
+      "opay"
+    );
+
+    loadOPayDetails();
+
+  }
+
+
+  /*
+  ==================================================
+  OPEN WALLET WITHDRAWAL
+  ==================================================
+  */
+
+  function openWalletWithdraw() {
+
+    showSection(
+      "wallet"
+    );
+
+
+    setTimeout(
+      () => {
+
+        const withdrawCard =
+          document.querySelector(
+            ".withdraw-card"
+          );
+
+
+        if (withdrawCard) {
+
+          withdrawCard.scrollIntoView({
+            behavior: "smooth",
+            block: "start"
+          });
+
+        }
+
+      },
+      100
+    );
+
+  }
+
+
+  /*
+  ==================================================
+  OPAY DETAILS
+  ==================================================
+  */
+
+  async function loadOPayDetails() {
+
+    try {
+
+      const response =
+        await fetch(
+          `${BACKEND_URL}/opay-details`
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (!response.ok) {
+        return;
+      }
+
+
+      document
+        .getElementById(
+          "opayAccountName"
+        )
+        .textContent =
+        data.account_name ||
+        "Not configured";
+
+
+      document
+        .getElementById(
+          "opayAccountNumber"
+        )
+        .textContent =
+        data.account_number ||
+        "Not configured";
+
+
+    } catch (error) {
+
+      console.error(
+        "OPay details error:",
+        error
+      );
+
+    }
+
+  }
+
+
+  /*
+  ==================================================
+  DISPLAY OPAY PAYMENT
+  ==================================================
+  */
+
+  function displayOPayPayment() {
+
+    const box =
+      document.getElementById(
+        "selectedVIPBox"
+      );
+
+
+    if (!selectedVIP) {
+
+      box.classList.add(
+        "hidden"
+      );
+
+      return;
+
+    }
+
+
+    const plan =
+      VIP_PLANS[
+        selectedVIP
+      ];
+
+
+    box.classList.remove(
+      "hidden"
+    );
+
+
+    document
+      .getElementById(
+        "selectedVIPName"
+      )
+      .textContent =
+      plan.name;
+
+
+    document
+      .getElementById(
+        "selectedVIPAmount"
+      )
+      .textContent =
+      formatMoney(
+        plan.price
+      );
+
+
+    document
+      .getElementById(
+        "opayReference"
+      )
+      .value = "";
+
+
+    document
+      .getElementById(
+        "paymentMessage"
+      )
+      .classList.add(
+        "hidden"
+      );
+
+
+    loadOPayDetails();
+
+  }
+
+
+  /*
+  ==================================================
+  SUBMIT VIP PAYMENT
+  ==================================================
+  */
+
+  async function submitVIPPayment() {
+
+    if (!currentUser) {
+      return;
+    }
+
+
+    if (!selectedVIP) {
+
+      alert(
+        "Please select a VIP plan first."
+      );
+
+      return;
+
+    }
+
+
+    const reference =
+      document
+        .getElementById(
+          "opayReference"
+        )
+        .value
+        .trim();
+
+
+    const message =
+      document.getElementById(
+        "paymentMessage"
+      );
+
+
+    if (!reference) {
+
+      showMessage(
+        message,
+        "Enter your OPay transaction reference."
+      );
+
+      return;
+
+    }
+
+
+    const plan =
+      VIP_PLANS[
+        selectedVIP
+      ];
+
+
+    try {
+
+      const response =
+        await fetch(
+          `${BACKEND_URL}/submit-vip-payment`,
+          {
+
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json"
+            },
+
+            body: JSON.stringify({
+              email:
+                currentUser.email,
+
+              vipLevel:
+                selectedVIP,
+
+              reference
+            })
+
+          }
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (!response.ok) {
+
+        showMessage(
+          message,
+          data.message ||
+            "Unable to submit payment."
+        );
+
+        return;
+
+      }
+
+
+      showMessage(
+        message,
+        `Your ${plan.name} payment of ₦${formatMoney(
+          plan.price
+        )} was submitted successfully. Please wait for moderator approval.`
+      );
+
+
+      document
+        .getElementById(
+          "opayReference"
+        )
+        .value = "";
+
+
+      await loadMyPayments();
+
+
+    } catch (error) {
+
+      console.error(error);
+
+      showMessage(
+        message,
+        "Unable to connect to Zavero server."
+      );
+
+    }
+
+  }
+
+
+  /*
+  ==================================================
+  COMMUNITY
+  ==================================================
+  */
+
+  function joinCommunity() {
+
+    window.open(
+      COMMUNITY_LINK,
+      "_blank"
+    );
+
+  }
+
+
+  async function loadCommunityRewardStatus() {
+
+    if (!currentUser) return;
+
+
+    const button =
+      document.getElementById(
+        "communityClaimBtn"
+      );
+
+
+    try {
+
+      const response =
+        await fetch(
+          `${BACKEND_URL}/community-reward-status?email=${encodeURIComponent(
+            currentUser.email
+          )}`
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (
+        data.success &&
+        data.claimed
+      ) {
+
+        button.disabled =
+          true;
+
+
+        button.textContent =
+          "✓ ₦400 Already Claimed";
+
+
+        return;
+
+      }
+
+
+      button.disabled =
+        false;
+
+
+      button.textContent =
+        "Claim ₦400";
+
+
+    } catch (error) {
+
+      console.error(
+        "Community status error:",
+        error
+      );
+
+    }
+
+  }
+
+
+  async function claimCommunityReward() {
+
+    if (!currentUser) {
+      return;
+    }
+
+
+    const button =
+      document.getElementById(
+        "communityClaimBtn"
+      );
+
+
+    const message =
+      document.getElementById(
+        "communityMessage"
+      );
+
+
+    button.disabled =
+      true;
+
+
+    try {
+
+      const response =
+        await fetch(
+          `${BACKEND_URL}/claim-community-reward`,
+          {
+
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json"
+            },
+
+            body: JSON.stringify({
+              email:
+                currentUser.email
+            })
+
+          }
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (!response.ok) {
+
+        button.disabled =
+          false;
+
+
+        showMessage(
+          message,
+          data.message ||
+            "Unable to claim community reward."
+        );
+
+
+        return;
+
+      }
+
+
+      button.textContent =
+        "✓ ₦400 Claimed";
+
+
+      showMessage(
+        message,
+        data.message
+      );
+
+
+      await loadBalance();
+
+      await loadTransactions();
+
+
+    } catch (error) {
+
+      console.error(error);
+
+
+      button.disabled =
+        false;
+
+
+      showMessage(
+        message,
+        "Unable to connect to Zavero server."
+      );
+
+    }
+
+  }
+
+
+  /*
+  ==================================================
+  REFERRAL LINK
+  ==================================================
+  */
+
+  async function loadInviteLink() {
+
+    if (!currentUser) return;
+
+
+    const referralLink =
+      `${window.location.origin}${window.location.pathname}?ref=${encodeURIComponent(
+        currentUser.id
+      )}`;
+
+
+    document
+      .getElementById(
+        "referralLink"
+      )
+      .textContent =
+      referralLink;
+
+  }
+
+
+  function copyInviteLink() {
+
+    const text =
+      document
+        .getElementById(
+          "referralLink"
+        )
+        .textContent;
+
+
+    if (
+      navigator.clipboard
+    ) {
+
+      navigator.clipboard
+        .writeText(text)
+        .then(
+          () => {
+
+            alert(
+              "Referral link copied."
+            );
+
+          }
+        )
+        .catch(
+          () => {
+
+            alert(
+              "Copy failed. Please copy the link manually."
+            );
+
+          }
+        );
+
+    } else {
+
+      alert(
+        "Please copy your referral link manually."
+      );
+
+    }
+
+  }
+
+
+  /*
+  ==================================================
+  REFERRAL STATISTICS
+  ==================================================
+  */
+
+  async function loadReferralStatus() {
+
+    if (!currentUser) return;
+
+
+    try {
+
+      const response =
+        await fetch(
+          `${BACKEND_URL}/referral-status?email=${encodeURIComponent(
+            currentUser.email
+          )}`
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (!response.ok) {
+        return;
+      }
+
+
+      document
+        .getElementById(
+          "totalReferrals"
+        )
+        .textContent =
+        data.totalReferrals || 0;
+
+
+      document
+        .getElementById(
+          "paidReferrals"
+        )
+        .textContent =
+        data.paidReferrals || 0;
+
+
+    } catch (error) {
+
+      console.error(
+        "Referral status error:",
+        error
+      );
+
+    }
+
+  }
+
+
+  /*
+  ==================================================
+  VIP CLAIM
+  ==================================================
+  */
+
+  async function claimVIP() {
+
+    if (!currentUser) {
+      return;
+    }
+
+
+    const message =
+      document.getElementById(
+        "claimMessage"
+      );
+
+
+    try {
+
+      const response =
+        await fetch(
+          `${BACKEND_URL}/claim-vip`,
+          {
+
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json"
+            },
+
+            body: JSON.stringify({
+              email:
+                currentUser.email
+            })
+
+          }
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (!response.ok) {
+
+        showMessage(
+          message,
+          data.message ||
+            "Unable to claim reward."
+        );
+
+        return;
+
+      }
+
+
+      showMessage(
+        message,
+        data.message
+      );
+
+
+      await loadBalance();
+
+      await loadTransactions();
+
+
+    } catch (error) {
+
+      console.error(error);
+
+
+      showMessage(
+        message,
+        "Unable to connect to Zavero server."
+      );
+
+    }
+
+  }
+
+
+  /*
+  ==================================================
+  WITHDRAWAL WINDOW
+  ==================================================
+  */
+
+  function isWithdrawalWindowOpen() {
+
+    const now =
+      new Date();
+
+
+    const day =
+      now.getDay();
+
+
+    const hour =
+      now.getHours();
+
+
+    const minute =
+      now.getMinutes();
+
+
+    if (
+      day !==
+      WITHDRAWAL_DAY
+    ) {
+
+      return false;
+
+    }
+
+
+    const currentMinutes =
+      hour * 60 +
+      minute;
+
+
+    const startMinutes =
+      WITHDRAWAL_START_HOUR *
+      60;
+
+
+    const endMinutes =
+      WITHDRAWAL_END_HOUR *
+      60;
+
+
+    return (
+      currentMinutes >=
+      startMinutes
+      &&
+      currentMinutes <
+      endMinutes
+    );
+
+  }
+
+
+  function updateWithdrawalWindow() {
+
+    const status =
+      document.getElementById(
+        "withdrawWindowStatus"
+      );
+
+
+    const submitButton =
+      document.getElementById(
+        "withdrawSubmitBtn"
+      );
+
+
+    if (!status) {
+      return;
+    }
+
+
+    const open =
+      isWithdrawalWindowOpen();
+
+
+    const balance =
+      Number(
+        currentUser?.balance ||
+        0
+      );
+
+
+    const enoughBalance =
+      balance >=
+      MIN_WITHDRAWAL;
+
+
+    if (open) {
+
+      status.textContent =
+        "✓ Withdrawal is OPEN — Sunday, 10:00 AM to 5:00 PM";
+
+
+      status.className =
+        "withdraw-open";
+
+    } else {
+
+      status.textContent =
+        "✕ Withdrawal is CLOSED";
+
+
+      status.className =
+        "withdraw-closed";
+
+    }
+
+
+    if (!open) {
+
+      submitButton.disabled =
+        true;
+
+    } else if (!enoughBalance) {
+
+      submitButton.disabled =
+        true;
+
+    } else {
+
+      submitButton.disabled =
+        false;
+
+    }
+
+  }
+
+
+  /*
+  ==================================================
+  SUBMIT WITHDRAWAL
+  ==================================================
+  */
+
+  async function submitWithdrawal() {
+
+    if (!currentUser) {
+      return;
+    }
+
+
+    const message =
+      document.getElementById(
+        "withdrawMessage"
+      );
+
+
+    const bank =
+      document
+        .getElementById(
+          "withdrawBank"
+        )
+        .value
+        .trim();
+
+
+    const accountName =
+      document
+        .getElementById(
+          "withdrawAccountName"
+        )
+        .value
+        .trim();
+
+
+    const accountNumber =
+      document
+        .getElementById(
+          "withdrawAccountNumber"
+        )
+        .value
+        .trim();
+
+
+    const amount =
+      Number(
+        document
+          .getElementById(
+            "withdrawAmount"
+          )
+          .value
+      );
+
+
+    /*
+    Frontend checks.
+    The server will ALSO enforce
+    these rules when we update server.js.
+    */
+
+
+    if (
+      !isWithdrawalWindowOpen()
+    ) {
+
+      showMessage(
+        message,
+        "Withdrawals are only available on Sunday from 10:00 AM to 5:00 PM."
+      );
+
+      return;
+
+    }
+
+
+    if (
+      Number(
+        currentUser.balance || 0
+      ) <
+      MIN_WITHDRAWAL
+    ) {
+
+      showMessage(
+        message,
+        "You need at least ₦5,000 in your wallet before you can withdraw."
+      );
+
+      return;
+
+    }
+
+
+    if (!bank) {
+
+      showMessage(
+        message,
+        "Please select your bank."
+      );
+
+      return;
+
+    }
+
+
+    if (!accountName) {
+
+      showMessage(
+        message,
+        "Please enter your account name."
+      );
+
+      return;
+
+    }
+
+
+    if (
+      !/^\d{10}$/.test(
+        accountNumber
+      )
+    ) {
+
+      showMessage(
+        message,
+        "Please enter a valid 10-digit account number."
+      );
+
+      return;
+
+    }
+
+
+    if (
+      !Number.isFinite(amount) ||
+      amount <
+      MIN_WITHDRAWAL
+    ) {
+
+      showMessage(
+        message,
+        "Minimum withdrawal is ₦5,000."
+      );
+
+      return;
+
+    }
+
+
+    if (
+      amount >
+      Number(
+        currentUser.balance || 0
+      )
+    ) {
+
+      showMessage(
+        message,
+        "You cannot withdraw more than your available wallet balance."
+      );
+
+      return;
+
+    }
+
+
+    const confirmed =
+      confirm(
+        `Request withdrawal of ₦${formatMoney(
+          amount
+        )} to ${bank} account ${accountNumber}?`
+      );
+
+
+    if (!confirmed) {
+      return;
+    }
+
+
+    const button =
+      document.getElementById(
+        "withdrawSubmitBtn"
+      );
+
+
+    button.disabled =
+      true;
+
+
+    try {
+
+      /*
+      This endpoint will be added
+      to server.js in the next step.
+      */
+
+      const response =
+        await fetch(
+          `${BACKEND_URL}/submit-withdrawal`,
+          {
+
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json"
+            },
+
+            body: JSON.stringify({
+
+              email:
+                currentUser.email,
+
+              amount,
+
+              bank,
+
+              accountName,
+
+              accountNumber
+
+            })
+
+          }
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (!response.ok) {
+
+        updateWithdrawalWindow();
+
+
+        showMessage(
+          message,
+          data.message ||
+            "Unable to submit withdrawal request."
+        );
+
+
+        return;
+
+      }
+
+
+      showMessage(
+        message,
+        data.message ||
+          "Withdrawal request submitted successfully. Please wait for moderator approval."
+      );
+
+
+      document
+        .getElementById(
+          "withdrawAmount"
+        )
+        .value = "";
+
+
+      document
+        .getElementById(
+          "withdrawBank"
+        )
+        .value = "";
+
+
+      document
+        .getElementById(
+          "withdrawAccountName"
+        )
+        .value = "";
+
+
+      document
+        .getElementById(
+          "withdrawAccountNumber"
+        )
+        .value = "";
+
+
+      await loadWithdrawalHistory();
+
+
+      updateWithdrawalWindow();
+
+
+    } catch (error) {
+
+      console.error(
+        "Withdrawal error:",
+        error
+      );
+
+
+      showMessage(
+        message,
+        "Unable to connect to Zavero server. The withdrawal system still needs the server update."
+      );
+
+
+      updateWithdrawalWindow();
+
+    }
+
+  }
+
+
+  /*
+  ==================================================
+  WITHDRAWAL HISTORY
+  ==================================================
+  */
+
+  async function loadWithdrawalHistory() {
+
+    if (!currentUser) {
+      return;
+    }
+
+
+    const container =
+      document.getElementById(
+        "withdrawalHistory"
+      );
+
+
+    try {
+
+      const response =
+        await fetch(
+          `${BACKEND_URL}/my-withdrawals?email=${encodeURIComponent(
+            currentUser.email
+          )}`
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (!response.ok) {
+
+        container.innerHTML = `
+          <p class="muted">
+            Withdrawal history will be available after the server withdrawal system is connected.
+          </p>
+        `;
+
+        return;
+
+      }
+
+
+      renderWithdrawalHistory(
+        data.withdrawals || []
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "Withdrawal history error:",
+        error
+      );
+
+
+      container.innerHTML = `
+        <p class="muted">
+          Withdrawal history is waiting for the server withdrawal system.
+        </p>
+      `;
+
+    }
+
+  }
+
+
+  function renderWithdrawalHistory(
+    withdrawals
+  ) {
+
+    const container =
+      document.getElementById(
+        "withdrawalHistory"
+      );
+
+
+    if (
+      !withdrawals ||
+      !withdrawals.length
+    ) {
+
+      container.innerHTML = `
+        <p class="muted">
+          No withdrawal requests yet.
+        </p>
+      `;
+
+      return;
+
+    }
+
+
+    container.innerHTML =
+      withdrawals
+        .map(
+          withdrawal => {
+
+            const amount =
+              Number(
+                withdrawal.amount || 0
+              );
+
+
+            const status =
+              String(
+                withdrawal.status ||
+                "pending"
+              )
+              .toLowerCase();
+
+
+            const date =
+              withdrawal.created_at
+                ? new Date(
+                    withdrawal.created_at
+                  ).toLocaleString()
+                : "";
+
+
+            const bank =
+              withdrawal.bank ||
+              "-";
+
+
+            const accountName =
+              withdrawal.account_name ||
+              "-";
+
+
+            const accountNumber =
+              withdrawal.account_number ||
+              "-";
+
+
+            return `
+
+              <div class="withdraw-history">
+
+                <div class="withdraw-history-top">
+
+                  <div class="withdraw-amount">
+                    ₦${formatMoney(
+                      amount
+                    )}
+                  </div>
+
+                  <div class="status ${escapeHTML(
+                    status
+                  )}">
+                    ${escapeHTML(
+                      status
+                    )}
+                  </div>
+
+                </div>
+
+
+                <div class="withdraw-bank">
+                  ${escapeHTML(
+                    bank
+                  )}
+                </div>
+
+
+                <div class="withdraw-detail">
+                  Account Name:
+                  ${escapeHTML(
+                    accountName
+                  )}
+                </div>
+
+
+                <div class="withdraw-detail">
+                  Account Number:
+                  ${escapeHTML(
+                    accountNumber
+                  )}
+                </div>
+
+
+                <div class="withdraw-detail">
+                  Requested:
+                  ${escapeHTML(
+                    date
+                  )}
+                </div>
+
+
+                ${
+                  withdrawal.rejection_reason
+                    ? `
+
+                      <div class="rejection-reason">
+
+                        Rejection reason:
+
+                        ${escapeHTML(
+                          withdrawal.rejection_reason
+                        )}
+
+                      </div>
+
+                    `
+                    : ""
+                }
+
+              </div>
+
+            `;
+
+          }
+        )
+        .join("");
+
+  }
+
+
+  /*
+  ==================================================
+  TRANSACTIONS
+  ==================================================
+  */
+
+  async function loadTransactions() {
+
+    if (!currentUser) {
+      return;
+    }
+
+
+    try {
+
+      const response =
+        await fetch(
+          `${BACKEND_URL}/transactions?email=${encodeURIComponent(
+            currentUser.email
+          )}`
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (!response.ok) {
+        return;
+      }
+
+
+      renderTransactions(
+        data.transactions || []
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "Transactions error:",
+        error
+      );
+
+    }
+
+  }
+
+
+  function renderTransactions(
+    transactions
+  ) {
+
+    const containers = [
+
+      document.getElementById(
+        "transactions"
+      ),
+
+      document.getElementById(
+        "homeTransactions"
+      )
+
+    ];
+
+
+    if (
+      !transactions.length
+    ) {
+
+      containers.forEach(
+        container => {
+
+          if (container) {
+
+            container.innerHTML = `
+
+              <p class="muted">
+                No transactions yet.
+              </p>
+
+            `;
+
+          }
+
+        }
+      );
+
+
+      return;
+
+    }
+
+
+    const html =
+      transactions
+        .slice(0, 50)
+        .map(
+          transaction => {
+
+            const amount =
+              Number(
+                transaction.amount ||
+                0
+              );
+
+
+            const date =
+              transaction.created_at
+                ? new Date(
+                    transaction.created_at
+                  ).toLocaleString()
+                : "";
+
+
+            return `
+
+              <div class="transaction">
+
+                <div class="transaction-top">
+
+                  <strong>
+
+                    ${escapeHTML(
+                      transaction.description ||
+                      transaction.type ||
+                      "Transaction"
+                    )}
+
+                  </strong>
+
+
+                  <span class="transaction-amount">
+
+                    ${
+                      amount > 0
+                        ? "+"
+                        : ""
+                    }₦${formatMoney(
+                      amount
+                    )}
+
+                  </span>
+
+                </div>
+
+
+                <div class="muted">
+
+                  ${escapeHTML(
+                    date
+                  )}
+
+                </div>
+
+              </div>
+
+            `;
+
+          }
+        )
+        .join("");
+
+
+    containers.forEach(
+      container => {
+
+        if (container) {
+
+          container.innerHTML =
+            html;
+
+        }
+
+      }
+    );
+
+  }
+
+
+  /*
+  ==================================================
+  PAYMENT HISTORY
+  ==================================================
+  */
+
+  async function loadMyPayments() {
+
+    if (!currentUser) {
+      return;
+    }
+
+
+    try {
+
+      const response =
+        await fetch(
+          `${BACKEND_URL}/my-payments?email=${encodeURIComponent(
+            currentUser.email
+          )}`
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (!response.ok) {
+        return;
+      }
+
+
+      renderPaymentHistory(
+        data.payments || []
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "Payment history error:",
+        error
+      );
+
+    }
+
+  }
+
+
+  function renderPaymentHistory(
+    payments
+  ) {
+
+    const containers = [
+
+      document.getElementById(
+        "paymentHistory"
+      ),
+
+      document.getElementById(
+        "opayPaymentHistory"
+      )
+
+    ];
+
+
+    if (!payments.length) {
+
+      containers.forEach(
+        container => {
+
+          if (container) {
+
+            container.innerHTML = `
+
+              <p class="muted">
+                No VIP payments yet.
+              </p>
+
+            `;
+
+          }
+
+        }
+      );
+
+
+      return;
+
+    }
+
+
+    const html =
+      payments
+        .map(
+          payment => {
+
+            const amount =
+              Number(
+                payment.amount ||
+                0
+              );
+
+
+            const vip =
+              payment.vip_level
+                ? `VIP ${payment.vip_level}`
+                : "VIP";
+
+
+            const status =
+              String(
+                payment.status ||
+                ""
+              )
+              .toLowerCase();
+
+
+            const date =
+              payment.created_at
+                ? new Date(
+                    payment.created_at
+                  ).toLocaleString()
+                : "";
+
+
+            return `
+
+              <div class="payment-history">
+
+                <div>
+
+                  <strong>
+                    ${escapeHTML(
+                      vip
+                    )}
+                  </strong>
+
+                </div>
+
+
+                <div>
+
+                  ₦${formatMoney(
+                    amount
+                  )}
+
+                </div>
+
+
+                <div class="muted">
+
+                  Ref:
+                  ${escapeHTML(
+                    payment.reference ||
+                    "-"
+                  )}
+
+                </div>
+
+
+                <div class="status ${escapeHTML(
+                  status
+                )}">
+
+                  ${escapeHTML(
+                    status
+                  )}
+
+                </div>
+
+
+                <div class="muted">
+
+                  ${escapeHTML(
+                    date
+                  )}
+
+                </div>
+
+
+                ${
+                  payment.rejection_reason
+                    ? `
+
+                      <div class="muted">
+
+                        Reason:
+                        ${escapeHTML(
+                          payment.rejection_reason
+                        )}
+
+                      </div>
+
+                    `
+                    : ""
+                }
+
+              </div>
+
+            `;
+
+          }
+        )
+        .join("");
+
+
+    containers.forEach(
+      container => {
+
+        if (container) {
+
+          container.innerHTML =
+            html;
+
+        }
+
+      }
+    );
+
+  }
+
+
+  /*
+  ==================================================
+  NAVIGATION
+  ==================================================
+  */
+
+  function showSection(
+    section
+  ) {
+
+    const sections = [
+
+      "home",
+      "vip",
+      "invite",
+      "wallet",
+      "opay"
+
+    ];
+
+
+    sections.forEach(
+      name => {
+
+        const element =
+          document.getElementById(
+            `${name}Section`
+          );
+
+
+        const nav =
+          document.getElementById(
+            `${name}Nav`
+          );
+
+
+        if (element) {
+
+          element.classList.toggle(
+            "active",
+            name === section
+          );
+
+        }
+
+
+        if (nav) {
+
+          nav.classList.toggle(
+            "active",
+            name === section
+          );
+
+        }
+
+      }
+    );
+
+
+    if (
+      section === "opay"
+    ) {
+
+      loadOPayDetails();
+
+      loadMyPayments();
+
+    }
+
+
+    if (
+      section === "wallet"
+    ) {
+
+      loadBalance();
+
+      loadTransactions();
+
+      loadMyPayments();
+
+      loadWithdrawalHistory();
+
+      updateWithdrawalWindow();
+
+    }
+
+
+    if (
+      section === "invite"
+    ) {
+
+      loadInviteLink();
+
+      loadReferralStatus();
+
+    }
+
+
+    if (
+      section === "home"
+    ) {
+
+      loadBalance();
+
+      loadCommunityRewardStatus();
+
+    }
+
+  }
+
+
+  /*
+  ==================================================
+  HELPERS
+  ==================================================
+  */
+
+  function showMessage(
+    element,
+    text
+  ) {
+
+    if (!element) {
+      return;
+    }
+
+
+    element.textContent =
+      text;
+
+
+    element.classList.remove(
+      "hidden"
+    );
+
+  }
+
+
+  function formatMoney(
+    value
+  ) {
+
+    return Number(
+      value || 0
+    ).toLocaleString(
+      "en-NG",
+      {
+        maximumFractionDigits: 2
+      }
+    );
+
+  }
+
+
+  function escapeHTML(
+    value
+  ) {
+
+    return String(
+      value ?? ""
+    )
+
+      .replace(
+        /&/g,
+        "&amp;"
+      )
+
+      .replace(
+        /</g,
+        "&lt;"
+      )
+
+      .replace(
+        />/g,
+        "&gt;"
+      )
+
+      .replace(
+        /"/g,
+        "&quot;"
+      )
+
+      .replace(
+        /'/g,
+        "&#039;"
+      );
+
+  }
+
+
+  /*
+  ==================================================
+  KEEP WITHDRAWAL STATUS UPDATED
+  ==================================================
+  */
+
+  setInterval(
+    () => {
+
+      if (currentUser) {
+
+        updateWithdrawalWindow();
+
+      }
+
+    },
+    30000
+  );
+
+
+</script>
+
+</body>
+</html>
