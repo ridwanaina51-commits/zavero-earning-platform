@@ -1859,11 +1859,26 @@ MAIN PAGE
 
 
   let currentUser =
-    JSON.parse(
-      localStorage.getItem(
-        "zaveroUser"
-      ) || "null"
+  JSON.parse(
+    localStorage.getItem(
+      "zaveroUser"
+    ) || "null"
+  );
+
+if (currentUser) {
+  const savedEmail =
+    localStorage.getItem(
+      "zaveroLoginEmail"
     );
+
+  if (
+    !currentUser.email &&
+    savedEmail
+  ) {
+    currentUser.email =
+      savedEmail;
+  }
+}
 
 
   let selectedVIP = null;
@@ -2182,16 +2197,26 @@ MAIN PAGE
       }
 
 
-      currentUser =
-        data.user;
+      currentUser = data.user || {};
 
+currentUser.email =
+  String(
+    currentUser.email || email
+  )
+  .trim()
+  .toLowerCase();
 
-      localStorage.setItem(
-        "zaveroUser",
-        JSON.stringify(
-          currentUser
-        )
-      );
+localStorage.setItem(
+  "zaveroUser",
+  JSON.stringify(
+    currentUser
+  )
+);
+
+localStorage.setItem(
+  "zaveroLoginEmail",
+  currentUser.email
+);
 
 
       showMainPage();
@@ -2730,9 +2755,18 @@ MAIN PAGE
 
   async function submitVIPPayment() {
 
-    if (!currentUser) {
-      return;
-    }
+    if (
+  !currentUser ||
+  !currentUser.email
+) {
+  showMessage(
+    document.getElementById(
+      "paymentMessage"
+    ),
+    "Please logout and login again before submitting your VIP payment."
+  );
+  return;
+}
 
 
     if (!selectedVIP) {
@@ -2937,9 +2971,18 @@ MAIN PAGE
 
   async function claimCommunityReward() {
 
-    if (!currentUser) {
-      return;
-    }
+    if (
+  !currentUser ||
+  !currentUser.email
+) {
+  showMessage(
+    document.getElementById(
+      "communityMessage"
+    ),
+    "Please logout and login again."
+  );
+  return;
+}
 
 
     const button =
