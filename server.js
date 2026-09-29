@@ -14,7 +14,6 @@ const SITE_URL =
 
 const COMMUNITY_REWARD = 400;
 const REFERRAL_REWARD = 500;
-
 const MIN_WITHDRAWAL = 5000;
 
 /*
@@ -129,39 +128,52 @@ async function setupDatabase() {
 
   await pool.query(`
     ALTER TABLE users
-    ADD COLUMN IF NOT EXISTS balance NUMERIC(14,2) NOT NULL DEFAULT 0
+    ADD COLUMN IF NOT EXISTS balance
+    NUMERIC(14,2) NOT NULL DEFAULT 0
   `);
 
   await pool.query(`
     ALTER TABLE users
-    ADD COLUMN IF NOT EXISTS vip_level INTEGER NOT NULL DEFAULT 0
+    ADD COLUMN IF NOT EXISTS vip_level
+    INTEGER NOT NULL DEFAULT 0
   `);
 
   await pool.query(`
     ALTER TABLE users
-    ADD COLUMN IF NOT EXISTS last_vip_claim TIMESTAMPTZ
+    ADD COLUMN IF NOT EXISTS last_vip_claim
+    TIMESTAMPTZ
   `);
 
   await pool.query(`
     ALTER TABLE users
-    ADD COLUMN IF NOT EXISTS referred_by INTEGER
+    ADD COLUMN IF NOT EXISTS referred_by
+    INTEGER
   `);
 
   await pool.query(`
     ALTER TABLE users
-    ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    ADD COLUMN IF NOT EXISTS created_at
+    TIMESTAMPTZ NOT NULL DEFAULT NOW()
   `);
 
   /*
   ==================================================
   PAYMENTS
   ==================================================
+
+  IMPORTANT:
+  Older Zavero database versions may already have
+  an EMAIL column which is NOT NULL.
+
+  We keep it and make sure every payment insert
+  supplies the user's real email.
   */
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS payments (
       id SERIAL PRIMARY KEY,
       user_id INTEGER NOT NULL,
+      email TEXT NOT NULL,
       amount NUMERIC(14,2) NOT NULL,
       reference TEXT,
       payment_type TEXT DEFAULT 'vip',
@@ -171,6 +183,11 @@ async function setupDatabase() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       approved_at TIMESTAMPTZ
     )
+  `);
+
+  await pool.query(`
+    ALTER TABLE payments
+    ADD COLUMN IF NOT EXISTS email TEXT
   `);
 
   await pool.query(`
@@ -190,7 +207,8 @@ async function setupDatabase() {
 
   await pool.query(`
     ALTER TABLE payments
-    ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending'
+    ADD COLUMN IF NOT EXISTS status
+    TEXT NOT NULL DEFAULT 'pending'
   `);
 
   await pool.query(`
@@ -200,30 +218,67 @@ async function setupDatabase() {
 
   await pool.query(`
     ALTER TABLE payments
-    ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    ADD COLUMN IF NOT EXISTS created_at
+    TIMESTAMPTZ NOT NULL DEFAULT NOW()
   `);
 
   await pool.query(`
     ALTER TABLE payments
-    ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ
+    ADD COLUMN IF NOT EXISTS approved_at
+    TIMESTAMPTZ
   `);
+
+  /*
+  ==================================================
+  FIX OLD PAYMENT EMAIL DATA
+  ==================================================
+  */
+
+  await pool.query(`
+    UPDATE payments p
+    SET email = u.email
+    FROM users u
+    WHERE p.user_id = u.id
+      AND (
+        p.email IS NULL
+        OR TRIM(p.email) = ''
+      )
+  `);
+
+  /*
+  If the old database column is NOT NULL,
+  the update above restores existing rows.
+  New rows are always given an email below.
+  */
 
   /*
   ==================================================
   TRANSACTIONS
   ==================================================
+
+  IMPORTANT:
+  Older Zavero database versions may already have
+  a USER_EMAIL column which is NOT NULL.
+
+  We keep it and supply it on every transaction.
   */
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS transactions (
       id SERIAL PRIMARY KEY,
       user_id INTEGER NOT NULL,
+      user_email TEXT NOT NULL,
       amount NUMERIC(14,2) NOT NULL,
       type TEXT NOT NULL,
       description TEXT,
       reference TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `);
+
+  await pool.query(`
+    ALTER TABLE transactions
+    ADD COLUMN IF NOT EXISTS user_email TEXT
   `);
 
   await pool.query(`
@@ -243,7 +298,25 @@ async function setupDatabase() {
 
   await pool.query(`
     ALTER TABLE transactions
-    ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    ADD COLUMN IF NOT EXISTS created_at
+    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  `);
+
+  /*
+  ==================================================
+  FIX OLD TRANSACTION EMAIL DATA
+  ==================================================
+  */
+
+  await pool.query(`
+    UPDATE transactions t
+    SET user_email = u.email
+    FROM users u
+    WHERE t.user_id = u.id
+      AND (
+        t.user_email IS NULL
+        OR TRIM(t.user_email) = ''
+      )
   `);
 
   /*
@@ -327,7 +400,8 @@ async function setupDatabase() {
 
   await pool.query(`
     ALTER TABLE withdrawals
-    ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending'
+    ADD COLUMN IF NOT EXISTS status
+    TEXT NOT NULL DEFAULT 'pending'
   `);
 
   await pool.query(`
@@ -337,12 +411,14 @@ async function setupDatabase() {
 
   await pool.query(`
     ALTER TABLE withdrawals
-    ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    ADD COLUMN IF NOT EXISTS created_at
+    TIMESTAMPTZ NOT NULL DEFAULT NOW()
   `);
 
   await pool.query(`
     ALTER TABLE withdrawals
-    ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ
+    ADD COLUMN IF NOT EXISTS reviewed_at
+    TIMESTAMPTZ
   `);
 
   console.log("Zavero database setup completed.");
@@ -362,14 +438,17 @@ function normalizeEmail(email) {
 
 function hashPassword(password) {
   return new Promise((resolve, reject) => {
-    const salt = crypto.randomBytes(16).toString("hex");
+    const salt =
+      crypto.randomBytes(16).toString("hex");
 
     crypto.scrypt(
       String(password),
       salt,
       64,
       (err, derivedKey) => {
-        if (err) return reject(err);
+        if (err) {
+          return reject(err);
+        }
 
         resolve(
           `${salt}:${derivedKey.toString("hex")}`
@@ -382,21 +461,26 @@ function hashPassword(password) {
 function verifyPassword(password, storedHash) {
   return new Promise((resolve, reject) => {
     try {
-      const parts = String(storedHash).split(":");
+      const parts =
+        String(storedHash).split(":");
 
       if (parts.length !== 2) {
         return resolve(false);
       }
 
       const salt = parts[0];
-      const storedKey = Buffer.from(parts[1], "hex");
+
+      const storedKey =
+        Buffer.from(parts[1], "hex");
 
       crypto.scrypt(
         String(password),
         salt,
         64,
         (err, derivedKey) => {
-          if (err) return reject(err);
+          if (err) {
+            return reject(err);
+          }
 
           try {
             resolve(
@@ -417,12 +501,16 @@ function verifyPassword(password, storedHash) {
 }
 
 function getVIPLevelFromAmount(amount) {
-  const numericAmount = Number(amount);
+  const numericAmount =
+    Number(amount);
 
-  for (const level of Object.keys(VIP_PLANS)) {
+  for (
+    const level of Object.keys(VIP_PLANS)
+  ) {
     if (
-      Number(VIP_PLANS[level].price) ===
-      numericAmount
+      Number(
+        VIP_PLANS[level].price
+      ) === numericAmount
     ) {
       return Number(level);
     }
@@ -435,76 +523,61 @@ function getVIPLevelFromAmount(amount) {
 ==================================================
 NIGERIA WITHDRAWAL TIME
 ==================================================
-
-Nigeria uses Africa/Lagos time.
-
-Sunday:
-10:00 AM - 5:00 PM
-
-The withdrawal window closes at exactly 5:00 PM.
 */
 
 function getNigeriaDateParts() {
-  const parts = new Intl.DateTimeFormat(
-    "en-US",
-    {
-      timeZone: "Africa/Lagos",
-      weekday: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false
-    }
-  ).formatToParts(new Date());
+  const parts =
+    new Intl.DateTimeFormat(
+      "en-US",
+      {
+        timeZone: "Africa/Lagos",
+        weekday: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+      }
+    ).formatToParts(new Date());
 
   const result = {};
 
   for (const part of parts) {
     if (part.type !== "literal") {
-      result[part.type] = part.value;
+      result[part.type] =
+        part.value;
     }
   }
 
-  let hour = Number(result.hour);
-  const minute = Number(result.minute);
+  let hour =
+    Number(result.hour);
 
-  /*
-  Some environments can return 24 for midnight.
-  Convert it to 0.
-  */
+  const minute =
+    Number(result.minute);
 
   if (hour === 24) {
     hour = 0;
   }
 
   return {
-    weekday: result.weekday,
+    weekday:
+      result.weekday,
     hour,
     minute
   };
 }
 
 function isWithdrawalWindowOpen() {
-  const nigeria = getNigeriaDateParts();
+  const nigeria =
+    getNigeriaDateParts();
 
-  /*
-  Sunday only.
-  */
-
-  if (nigeria.weekday !== "Sun") {
+  if (
+    nigeria.weekday !== "Sun"
+  ) {
     return false;
   }
 
   const totalMinutes =
     nigeria.hour * 60 +
     nigeria.minute;
-
-  /*
-  10:00 AM = 600 minutes
-  5:00 PM = 1020 minutes
-
-  Open from 600 inclusive
-  until 1020 exclusive.
-  */
 
   return (
     totalMinutes >= 600 &&
@@ -520,7 +593,10 @@ ROOT
 
 app.get("/", (req, res) => {
   res.sendFile(
-    path.join(__dirname, "index.html")
+    path.join(
+      __dirname,
+      "index.html"
+    )
   );
 });
 
@@ -533,7 +609,8 @@ TEST
 app.get("/test", (req, res) => {
   res.json({
     success: true,
-    message: "Zavero connection test is working"
+    message:
+      "Zavero connection test is working"
   });
 });
 
@@ -545,11 +622,26 @@ SIGN UP
 
 app.post("/signup", async (req, res) => {
   try {
-    const name = String(req.body.name || "").trim();
-    const email = normalizeEmail(req.body.email);
-    const password = String(req.body.password || "");
+    const name =
+      String(
+        req.body.name || ""
+      ).trim();
 
-    if (!name || !email || !password) {
+    const email =
+      normalizeEmail(
+        req.body.email
+      );
+
+    const password =
+      String(
+        req.body.password || ""
+      );
+
+    if (
+      !name ||
+      !email ||
+      !password
+    ) {
       return res.status(400).json({
         success: false,
         message:
@@ -557,7 +649,9 @@ app.post("/signup", async (req, res) => {
       });
     }
 
-    if (password.length < 6) {
+    if (
+      password.length < 6
+    ) {
       return res.status(400).json({
         success: false,
         message:
@@ -565,15 +659,18 @@ app.post("/signup", async (req, res) => {
       });
     }
 
-    const existing = await pool.query(
-      `SELECT id
-       FROM users
-       WHERE LOWER(email) = $1
-       LIMIT 1`,
-      [email]
-    );
+    const existing =
+      await pool.query(
+        `SELECT id
+         FROM users
+         WHERE LOWER(email) = $1
+         LIMIT 1`,
+        [email]
+      );
 
-    if (existing.rows.length > 0) {
+    if (
+      existing.rows.length > 0
+    ) {
       return res.status(400).json({
         success: false,
         message:
@@ -597,32 +694,56 @@ app.post("/signup", async (req, res) => {
            WHERE id::text = $1
               OR LOWER(email) = LOWER($1)
            LIMIT 1`,
-          [String(referralInput).trim()]
+          [
+            String(
+              referralInput
+            ).trim()
+          ]
         );
 
-      if (referrerResult.rows.length > 0) {
+      if (
+        referrerResult.rows.length >
+        0
+      ) {
         referrerId =
           referrerResult.rows[0].id;
       }
     }
 
     const passwordHash =
-      await hashPassword(password);
+      await hashPassword(
+        password
+      );
 
-    const result = await pool.query(
-      `INSERT INTO users
-       (name, email, password_hash, balance, vip_level, referred_by)
-       VALUES ($1, $2, $3, 0, 0, $4)
-       RETURNING id, name, email, balance, vip_level`,
-      [
-        name,
-        email,
-        passwordHash,
-        referrerId
-      ]
-    );
+    const result =
+      await pool.query(
+        `INSERT INTO users
+         (
+           name,
+           email,
+           password_hash,
+           balance,
+           vip_level,
+           referred_by
+         )
+         VALUES
+         ($1, $2, $3, 0, 0, $4)
+         RETURNING
+           id,
+           name,
+           email,
+           balance,
+           vip_level`,
+        [
+          name,
+          email,
+          passwordHash,
+          referrerId
+        ]
+      );
 
-    const user = result.rows[0];
+    const user =
+      result.rows[0];
 
     res.json({
       success: true,
@@ -632,7 +753,8 @@ app.post("/signup", async (req, res) => {
         id: user.id,
         name: user.name,
         email: user.email,
-        balance: Number(user.balance),
+        balance:
+          Number(user.balance),
         vip_level:
           Number(user.vip_level)
       }
@@ -660,12 +782,19 @@ LOGIN
 app.post("/login", async (req, res) => {
   try {
     const email =
-      normalizeEmail(req.body.email);
+      normalizeEmail(
+        req.body.email
+      );
 
     const password =
-      String(req.body.password || "");
+      String(
+        req.body.password || ""
+      );
 
-    if (!email || !password) {
+    if (
+      !email ||
+      !password
+    ) {
       return res.status(400).json({
         success: false,
         message:
@@ -673,23 +802,26 @@ app.post("/login", async (req, res) => {
       });
     }
 
-    const result = await pool.query(
-      `SELECT
-        id,
-        name,
-        email,
-        password_hash,
-        balance,
-        vip_level,
-        last_vip_claim,
-        referred_by
-       FROM users
-       WHERE LOWER(email) = $1
-       LIMIT 1`,
-      [email]
-    );
+    const result =
+      await pool.query(
+        `SELECT
+          id,
+          name,
+          email,
+          password_hash,
+          balance,
+          vip_level,
+          last_vip_claim,
+          referred_by
+         FROM users
+         WHERE LOWER(email) = $1
+         LIMIT 1`,
+        [email]
+      );
 
-    if (result.rows.length === 0) {
+    if (
+      result.rows.length === 0
+    ) {
       return res.status(401).json({
         success: false,
         message:
@@ -697,7 +829,8 @@ app.post("/login", async (req, res) => {
       });
     }
 
-    const user = result.rows[0];
+    const user =
+      result.rows[0];
 
     const valid =
       await verifyPassword(
@@ -751,70 +884,81 @@ BALANCE
 ==================================================
 */
 
-app.get("/balance", async (req, res) => {
-  try {
-    const email =
-      normalizeEmail(req.query.email);
+app.get(
+  "/balance",
+  async (req, res) => {
+    try {
+      const email =
+        normalizeEmail(
+          req.query.email
+        );
 
-    if (!email) {
-      return res.status(400).json({
+      if (!email) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Email is required."
+        });
+      }
+
+      const result =
+        await pool.query(
+          `SELECT
+            id,
+            name,
+            email,
+            balance,
+            vip_level,
+            last_vip_claim,
+            referred_by
+           FROM users
+           WHERE LOWER(email) = $1
+           LIMIT 1`,
+          [email]
+        );
+
+      if (
+        result.rows.length === 0
+      ) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "User not found."
+        });
+      }
+
+      const user =
+        result.rows[0];
+
+      res.json({
+        success: true,
+        balance:
+          Number(user.balance),
+        vip_level:
+          Number(user.vip_level),
+        last_vip_claim:
+          user.last_vip_claim,
+        name:
+          user.name,
+        email:
+          user.email,
+        referred_by:
+          user.referred_by
+      });
+    } catch (error) {
+      console.error(
+        "BALANCE ERROR:",
+        error
+      );
+
+      res.status(500).json({
         success: false,
         message:
-          "Email is required."
+          "Unable to load balance."
       });
     }
-
-    const result = await pool.query(
-      `SELECT
-        id,
-        name,
-        email,
-        balance,
-        vip_level,
-        last_vip_claim,
-        referred_by
-       FROM users
-       WHERE LOWER(email) = $1
-       LIMIT 1`,
-      [email]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message:
-          "User not found."
-      });
-    }
-
-    const user = result.rows[0];
-
-    res.json({
-      success: true,
-      balance:
-        Number(user.balance),
-      vip_level:
-        Number(user.vip_level),
-      last_vip_claim:
-        user.last_vip_claim,
-      name: user.name,
-      email: user.email,
-      referred_by:
-        user.referred_by
-    });
-  } catch (error) {
-    console.error(
-      "BALANCE ERROR:",
-      error
-    );
-
-    res.status(500).json({
-      success: false,
-      message:
-        "Unable to load balance."
-    });
   }
-});
+);
 
 /*
 ==================================================
@@ -822,12 +966,16 @@ VIP PLANS
 ==================================================
 */
 
-app.get("/vip-plans", (req, res) => {
-  res.json({
-    success: true,
-    plans: VIP_PLANS
-  });
-});
+app.get(
+  "/vip-plans",
+  (req, res) => {
+    res.json({
+      success: true,
+      plans:
+        VIP_PLANS
+    });
+  }
+);
 
 /*
 ==================================================
@@ -835,19 +983,29 @@ OPAY DETAILS
 ==================================================
 */
 
-app.get("/opay-details", (req, res) => {
-  res.json({
-    success: true,
-    account_name:
-      process.env.OPAY_ACCOUNT_NAME || "",
-    account_number:
-      process.env.OPAY_ACCOUNT_NUMBER || ""
-  });
-});
+app.get(
+  "/opay-details",
+  (req, res) => {
+    res.json({
+      success: true,
+      account_name:
+        process.env.OPAY_ACCOUNT_NAME ||
+        "",
+      account_number:
+        process.env.OPAY_ACCOUNT_NUMBER ||
+        ""
+    });
+  }
+);
 
 /*
 ==================================================
 SUBMIT VIP PAYMENT
+==================================================
+
+IMPORTANT:
+The email comes from the users table.
+This prevents NULL email errors.
 ==================================================
 */
 
@@ -856,14 +1014,19 @@ app.post(
   async (req, res) => {
     try {
       const email =
-        normalizeEmail(req.body.email);
+        normalizeEmail(
+          req.body.email
+        );
 
       const vipLevel =
-        Number(req.body.vipLevel);
+        Number(
+          req.body.vipLevel
+        );
 
       const reference =
         String(
-          req.body.reference || ""
+          req.body.reference ||
+            ""
         ).trim();
 
       if (
@@ -878,7 +1041,9 @@ app.post(
         });
       }
 
-      if (!VIP_PLANS[vipLevel]) {
+      if (
+        !VIP_PLANS[vipLevel]
+      ) {
         return res.status(400).json({
           success: false,
           message:
@@ -886,13 +1051,19 @@ app.post(
         });
       }
 
-      if (reference.length < 3) {
+      if (
+        reference.length < 3
+      ) {
         return res.status(400).json({
           success: false,
           message:
             "Please enter a valid OPay transaction reference."
         });
       }
+
+      /*
+      Find the real user.
+      */
 
       const userResult =
         await pool.query(
@@ -908,7 +1079,8 @@ app.post(
         );
 
       if (
-        userResult.rows.length === 0
+        userResult.rows.length ===
+        0
       ) {
         return res.status(404).json({
           success: false,
@@ -920,18 +1092,43 @@ app.post(
       const user =
         userResult.rows[0];
 
+      /*
+      Always use the canonical
+      database email.
+      */
+
+      const canonicalEmail =
+        normalizeEmail(
+          user.email
+        );
+
+      if (!canonicalEmail) {
+        return res.status(500).json({
+          success: false,
+          message:
+            "This account does not have a valid email address."
+        });
+      }
+
+      /*
+      Check duplicate OPay reference.
+      */
+
       const duplicateReference =
         await pool.query(
           `SELECT id
            FROM payments
-           WHERE LOWER(reference) = LOWER($1)
-             AND status IN ('pending', 'approved')
+           WHERE LOWER(reference) =
+                 LOWER($1)
+             AND status IN
+                 ('pending', 'approved')
            LIMIT 1`,
           [reference]
         );
 
       if (
-        duplicateReference.rows.length > 0
+        duplicateReference.rows
+          .length > 0
       ) {
         return res.status(400).json({
           success: false,
@@ -939,6 +1136,10 @@ app.post(
             "This OPay transaction reference has already been submitted."
         });
       }
+
+      /*
+      Prevent same or lower VIP.
+      */
 
       if (
         Number(user.vip_level) >=
@@ -952,13 +1153,20 @@ app.post(
       }
 
       const amount =
-        VIP_PLANS[vipLevel].price;
+        VIP_PLANS[vipLevel]
+          .price;
+
+      /*
+      IMPORTANT:
+      Email is explicitly inserted.
+      */
 
       const result =
         await pool.query(
           `INSERT INTO payments
            (
              user_id,
+             email,
              amount,
              reference,
              payment_type,
@@ -966,9 +1174,18 @@ app.post(
              status
            )
            VALUES
-           ($1, $2, $3, 'vip', $4, 'pending')
+           (
+             $1,
+             $2,
+             $3,
+             $4,
+             'vip',
+             $5,
+             'pending'
+           )
            RETURNING
              id,
+             email,
              amount,
              reference,
              vip_level,
@@ -976,6 +1193,7 @@ app.post(
              created_at`,
           [
             user.id,
+            canonicalEmail,
             amount,
             reference,
             vipLevel
@@ -1015,7 +1233,9 @@ app.get(
   async (req, res) => {
     try {
       const email =
-        normalizeEmail(req.query.email);
+        normalizeEmail(
+          req.query.email
+        );
 
       if (!email) {
         return res.status(400).json({
@@ -1029,6 +1249,7 @@ app.get(
         await pool.query(
           `SELECT
             p.id,
+            p.email,
             p.amount,
             p.reference,
             p.payment_type,
@@ -1048,11 +1269,15 @@ app.get(
       res.json({
         success: true,
         payments:
-          result.rows.map(p => ({
-            ...p,
-            amount:
-              Number(p.amount)
-          }))
+          result.rows.map(
+            p => ({
+              ...p,
+              amount:
+                Number(
+                  p.amount
+                )
+            })
+          )
       });
     } catch (error) {
       console.error(
@@ -1080,7 +1305,9 @@ app.post(
   async (req, res) => {
     try {
       const email =
-        normalizeEmail(req.body.email);
+        normalizeEmail(
+          req.body.email
+        );
 
       if (!email) {
         return res.status(400).json({
@@ -1094,12 +1321,15 @@ app.post(
         await pool.connect();
 
       try {
-        await client.query("BEGIN");
+        await client.query(
+          "BEGIN"
+        );
 
         const userResult =
           await client.query(
             `SELECT
               id,
+              email,
               balance,
               vip_level,
               last_vip_claim
@@ -1110,7 +1340,8 @@ app.post(
           );
 
         if (
-          userResult.rows.length === 0
+          userResult.rows.length ===
+          0
         ) {
           await client.query(
             "ROLLBACK"
@@ -1126,8 +1357,15 @@ app.post(
         const user =
           userResult.rows[0];
 
+        const canonicalEmail =
+          normalizeEmail(
+            user.email
+          );
+
         const vipLevel =
-          Number(user.vip_level);
+          Number(
+            user.vip_level
+          );
 
         if (
           !vipLevel ||
@@ -1144,7 +1382,9 @@ app.post(
           });
         }
 
-        if (user.last_vip_claim) {
+        if (
+          user.last_vip_claim
+        ) {
           const lastClaim =
             new Date(
               user.last_vip_claim
@@ -1181,11 +1421,14 @@ app.post(
 
             const minutes =
               Math.floor(
-                (remaining %
+                (
+                  remaining %
                   (60 *
                     60 *
-                    1000)) /
-                  (60 * 1000)
+                    1000)
+                ) /
+                  (60 *
+                    1000)
               );
 
             await client.query(
@@ -1219,10 +1462,16 @@ app.post(
           ]
         );
 
+        /*
+        IMPORTANT:
+        user_email is explicitly supplied.
+        */
+
         await client.query(
           `INSERT INTO transactions
            (
              user_id,
+             user_email,
              amount,
              type,
              description,
@@ -1232,12 +1481,14 @@ app.post(
            (
              $1,
              $2,
-             'vip_reward',
              $3,
-             $4
+             'vip_reward',
+             $4,
+             $5
            )`,
           [
             user.id,
+            canonicalEmail,
             reward,
             `${VIP_PLANS[vipLevel].name} Daily Reward`,
             `VIP-${user.id}-${Date.now()}`
@@ -1292,7 +1543,9 @@ app.get(
   async (req, res) => {
     try {
       const email =
-        normalizeEmail(req.query.email);
+        normalizeEmail(
+          req.query.email
+        );
 
       if (!email) {
         return res.status(400).json({
@@ -1306,6 +1559,7 @@ app.get(
         await pool.query(
           `SELECT
             t.id,
+            t.user_email,
             t.amount,
             t.type,
             t.description,
@@ -1323,11 +1577,15 @@ app.get(
       res.json({
         success: true,
         transactions:
-          result.rows.map(t => ({
-            ...t,
-            amount:
-              Number(t.amount)
-          }))
+          result.rows.map(
+            t => ({
+              ...t,
+              amount:
+                Number(
+                  t.amount
+                )
+            })
+          )
       });
     } catch (error) {
       console.error(
@@ -1377,7 +1635,8 @@ app.get(
         );
 
       if (
-        userResult.rows.length === 0
+        userResult.rows.length ===
+        0
       ) {
         return res.status(404).json({
           success: false,
@@ -1454,9 +1713,16 @@ app.post(
         "BEGIN"
       );
 
+      /*
+      Get canonical user information.
+      */
+
       const userResult =
         await client.query(
-          `SELECT id, balance
+          `SELECT
+            id,
+            email,
+            balance
            FROM users
            WHERE LOWER(email) = $1
            FOR UPDATE`,
@@ -1464,7 +1730,8 @@ app.post(
         );
 
       if (
-        userResult.rows.length === 0
+        userResult.rows.length ===
+        0
       ) {
         await client.query(
           "ROLLBACK"
@@ -1479,6 +1746,27 @@ app.post(
 
       const user =
         userResult.rows[0];
+
+      const canonicalEmail =
+        normalizeEmail(
+          user.email
+        );
+
+      if (!canonicalEmail) {
+        await client.query(
+          "ROLLBACK"
+        );
+
+        return res.status(500).json({
+          success: false,
+          message:
+            "This account does not have a valid email address."
+        });
+      }
+
+      /*
+      One-time community reward.
+      */
 
       const rewardInsert =
         await client.query(
@@ -1500,7 +1788,8 @@ app.post(
         );
 
       if (
-        rewardInsert.rows.length === 0
+        rewardInsert.rows.length ===
+        0
       ) {
         await client.query(
           "ROLLBACK"
@@ -1527,10 +1816,16 @@ app.post(
         ]
       );
 
+      /*
+      IMPORTANT:
+      user_email is explicitly supplied.
+      */
+
       await client.query(
         `INSERT INTO transactions
          (
            user_id,
+           user_email,
            amount,
            type,
            description,
@@ -1540,12 +1835,14 @@ app.post(
          (
            $1,
            $2,
+           $3,
            'community_reward',
            'WhatsApp Community Reward',
-           $3
+           $4
          )`,
         [
           user.id,
+          canonicalEmail,
           COMMUNITY_REWARD,
           `COMMUNITY-${user.id}-${Date.now()}`
         ]
@@ -1620,7 +1917,8 @@ app.get(
         );
 
       if (
-        userResult.rows.length === 0
+        userResult.rows.length ===
+        0
       ) {
         return res.status(404).json({
           success: false,
@@ -1653,11 +1951,13 @@ app.get(
         success: true,
         totalReferrals:
           Number(
-            countResult.rows[0].count
+            countResult.rows[0]
+              .count
           ),
         paidReferrals:
           Number(
-            paidResult.rows[0].count
+            paidResult.rows[0]
+              .count
           ),
         rewardPerReferral:
           REFERRAL_REWARD
@@ -1696,7 +1996,7 @@ app.post(
 
 /*
 ==================================================
-WITHDRAWAL WINDOW STATUS
+WITHDRAWAL WINDOW
 ==================================================
 */
 
@@ -1727,16 +2027,6 @@ app.get(
 ==================================================
 SUBMIT WITHDRAWAL
 ==================================================
-
-Rules:
-
-- Sunday only
-- 10 AM to 5 PM
-- Minimum ₦5,000
-- Balance must be enough
-- Money is NOT deducted here
-- Only one pending withdrawal per user
-==================================================
 */
 
 app.post(
@@ -1749,7 +2039,9 @@ app.post(
         );
 
       const amount =
-        Number(req.body.amount);
+        Number(
+          req.body.amount
+        );
 
       const bank =
         String(
@@ -1769,10 +2061,6 @@ app.post(
           req.body.accountNumber ||
           ""
         ).trim();
-
-      /*
-      Check withdrawal time first.
-      */
 
       if (
         !isWithdrawalWindowOpen()
@@ -1803,10 +2091,6 @@ app.post(
         });
       }
 
-      /*
-      Only whole naira amounts.
-      */
-
       if (
         !Number.isInteger(amount)
       ) {
@@ -1832,11 +2116,6 @@ app.post(
             "Account name is required."
         });
       }
-
-      /*
-      Nigerian bank account numbers
-      are normally 10 digits.
-      */
 
       if (
         !/^\d{10}$/.test(
@@ -1864,7 +2143,8 @@ app.post(
         );
 
       if (
-        userResult.rows.length === 0
+        userResult.rows.length ===
+        0
       ) {
         return res.status(404).json({
           success: false,
@@ -1877,7 +2157,9 @@ app.post(
         userResult.rows[0];
 
       const balance =
-        Number(user.balance);
+        Number(
+          user.balance
+        );
 
       if (
         balance < amount
@@ -1888,10 +2170,6 @@ app.post(
             `Insufficient wallet balance. Your current balance is ₦${balance.toLocaleString()}.`
         });
       }
-
-      /*
-      Prevent multiple pending withdrawals.
-      */
 
       const pendingResult =
         await pool.query(
@@ -1904,7 +2182,8 @@ app.post(
         );
 
       if (
-        pendingResult.rows.length > 0
+        pendingResult.rows.length >
+        0
       ) {
         return res.status(400).json({
           success: false,
@@ -1912,11 +2191,6 @@ app.post(
             "You already have a pending withdrawal request. Please wait for it to be reviewed."
         });
       }
-
-      /*
-      IMPORTANT:
-      We do NOT deduct the balance here.
-      */
 
       const result =
         await pool.query(
@@ -2031,11 +2305,15 @@ app.get(
       res.json({
         success: true,
         withdrawals:
-          result.rows.map(w => ({
-            ...w,
-            amount:
-              Number(w.amount)
-          }))
+          result.rows.map(
+            w => ({
+              ...w,
+              amount:
+                Number(
+                  w.amount
+                )
+            })
+          )
       });
     } catch (error) {
       console.error(
@@ -2054,14 +2332,19 @@ app.get(
 
 /*
 ==================================================
-MODERATOR AUTH HELPER
+MODERATOR AUTH
 ==================================================
 */
 
-function checkModerator(req, res) {
+function checkModerator(
+  req,
+  res
+) {
   const moderatorKey =
     String(
-      req.headers["x-moderator-key"] || ""
+      req.headers[
+        "x-moderator-key"
+      ] || ""
     );
 
   if (
@@ -2092,7 +2375,10 @@ app.get(
   async (req, res) => {
     try {
       if (
-        !checkModerator(req, res)
+        !checkModerator(
+          req,
+          res
+        )
       ) {
         return;
       }
@@ -2104,6 +2390,7 @@ app.get(
             p.user_id,
             u.name,
             u.email,
+            p.email AS payment_email,
             p.amount,
             p.reference,
             p.vip_level,
@@ -2145,7 +2432,8 @@ app.get(
             return (
               level &&
               Number(
-                VIP_PLANS[level].price
+                VIP_PLANS[level]
+                  .price
               ) === amount
             );
           }
@@ -2166,18 +2454,17 @@ app.get(
                   amount
                 );
 
-              const vipLevel =
+              const requested =
                 Number(
                   payment.vip_level
-                ) &&
+                );
+
+              const vipLevel =
+                requested &&
                 VIP_PLANS[
-                  Number(
-                    payment.vip_level
-                  )
+                  requested
                 ]
-                  ? Number(
-                      payment.vip_level
-                    )
+                  ? requested
                   : derivedLevel;
 
               return {
@@ -2239,14 +2526,19 @@ app.post(
 
     try {
       if (
-        !checkModerator(req, res)
+        !checkModerator(
+          req,
+          res
+        )
       ) {
         client.release();
         return;
       }
 
       const paymentId =
-        Number(req.params.id);
+        Number(
+          req.params.id
+        );
 
       if (!paymentId) {
         client.release();
@@ -2267,11 +2559,12 @@ app.post(
           `SELECT
             p.id,
             p.user_id,
+            p.email,
             p.amount,
             p.reference,
             p.vip_level,
             p.status,
-            u.email,
+            u.email AS user_email,
             u.name,
             u.vip_level AS current_vip_level
            FROM payments p
@@ -2283,7 +2576,8 @@ app.post(
         );
 
       if (
-        paymentResult.rows.length === 0
+        paymentResult.rows.length ===
+        0
       ) {
         await client.query(
           "ROLLBACK"
@@ -2311,6 +2605,23 @@ app.post(
           success: false,
           message:
             "This payment has already been processed."
+        });
+      }
+
+      const canonicalEmail =
+        normalizeEmail(
+          payment.user_email
+        );
+
+      if (!canonicalEmail) {
+        await client.query(
+          "ROLLBACK"
+        );
+
+        return res.status(500).json({
+          success: false,
+          message:
+            "User email is missing."
         });
       }
 
@@ -2351,7 +2662,8 @@ app.post(
 
       if (
         Number(
-          VIP_PLANS[vipLevel].price
+          VIP_PLANS[vipLevel]
+            .price
         ) !== amount
       ) {
         await client.query(
@@ -2373,6 +2685,10 @@ app.post(
       const isFirstVIP =
         oldVIP === 0;
 
+      /*
+      Activate VIP.
+      */
+
       await client.query(
         `UPDATE users
          SET vip_level = $1,
@@ -2384,22 +2700,33 @@ app.post(
         ]
       );
 
+      /*
+      Approve payment.
+      */
+
       await client.query(
         `UPDATE payments
          SET status = 'approved',
-             vip_level = $1,
+             email = $1,
+             vip_level = $2,
              approved_at = NOW()
-         WHERE id = $2`,
+         WHERE id = $3`,
         [
+          canonicalEmail,
           vipLevel,
           paymentId
         ]
       );
 
+      /*
+      Transaction record.
+      */
+
       await client.query(
         `INSERT INTO transactions
          (
            user_id,
+           user_email,
            amount,
            type,
            description,
@@ -2409,12 +2736,14 @@ app.post(
          (
            $1,
            $2,
-           'vip_activation',
            $3,
-           $4
+           'vip_activation',
+           $4,
+           $5
          )`,
         [
           payment.user_id,
+          canonicalEmail,
           0,
           `${VIP_PLANS[vipLevel].name} activated`,
           payment.reference ||
@@ -2441,21 +2770,28 @@ app.post(
              FROM users
              WHERE id = $1
              LIMIT 1`,
-            [payment.user_id]
+            [
+              payment.user_id
+            ]
           );
 
         if (
-          referrerResult.rows.length >
-          0
+          referrerResult.rows
+            .length > 0
         ) {
           const referrerId =
-            referrerResult.rows[0]
+            referrerResult
+              .rows[0]
               .referred_by;
 
           if (
             referrerId &&
-            Number(referrerId) !==
-              Number(payment.user_id)
+            Number(
+              referrerId
+            ) !==
+              Number(
+                payment.user_id
+              )
           ) {
             const referralInsert =
               await client.query(
@@ -2485,27 +2821,39 @@ app.post(
               );
 
             if (
-              referralInsert.rows
-                .length > 0
+              referralInsert
+                .rows.length > 0
             ) {
               const referrerBalanceResult =
                 await client.query(
-                  `SELECT balance
+                  `SELECT
+                    id,
+                    email,
+                    balance
                    FROM users
                    WHERE id = $1
                    FOR UPDATE`,
-                  [referrerId]
+                  [
+                    referrerId
+                  ]
                 );
 
               if (
                 referrerBalanceResult
                   .rows.length > 0
               ) {
+                const referrer =
+                  referrerBalanceResult
+                    .rows[0];
+
+                const referrerEmail =
+                  normalizeEmail(
+                    referrer.email
+                  );
+
                 const referrerBalance =
                   Number(
-                    referrerBalanceResult
-                      .rows[0]
-                      .balance
+                    referrer.balance
                   );
 
                 const newReferrerBalance =
@@ -2522,10 +2870,17 @@ app.post(
                   ]
                 );
 
+                /*
+                Referral transaction
+                now also includes
+                user_email.
+                */
+
                 await client.query(
                   `INSERT INTO transactions
                    (
                      user_id,
+                     user_email,
                      amount,
                      type,
                      description,
@@ -2535,12 +2890,14 @@ app.post(
                    (
                      $1,
                      $2,
+                     $3,
                      'referral_reward',
                      'Referral VIP Activation Reward',
-                     $3
+                     $4
                    )`,
                   [
                     referrerId,
+                    referrerEmail,
                     REFERRAL_REWARD,
                     `REFERRAL-${payment.user_id}-${Date.now()}`
                   ]
@@ -2606,13 +2963,18 @@ app.post(
   async (req, res) => {
     try {
       if (
-        !checkModerator(req, res)
+        !checkModerator(
+          req,
+          res
+        )
       ) {
         return;
       }
 
       const paymentId =
-        Number(req.params.id);
+        Number(
+          req.params.id
+        );
 
       const reason =
         String(
@@ -2675,7 +3037,10 @@ app.get(
   async (req, res) => {
     try {
       if (
-        !checkModerator(req, res)
+        !checkModerator(
+          req,
+          res
+        )
       ) {
         return;
       }
@@ -2754,20 +3119,6 @@ app.get(
 ==================================================
 MODERATOR: APPROVE WITHDRAWAL
 ==================================================
-
-IMPORTANT:
-
-The moderator should manually send the money
-to the user's bank account FIRST.
-
-Then press Approve.
-
-Only after approval does Zavero deduct
-the withdrawal amount from the wallet.
-
-Everything happens inside one database
-transaction to prevent double deductions.
-==================================================
 */
 
 app.post(
@@ -2778,14 +3129,19 @@ app.post(
 
     try {
       if (
-        !checkModerator(req, res)
+        !checkModerator(
+          req,
+          res
+        )
       ) {
         client.release();
         return;
       }
 
       const withdrawalId =
-        Number(req.params.id);
+        Number(
+          req.params.id
+        );
 
       if (!withdrawalId) {
         client.release();
@@ -2800,12 +3156,6 @@ app.post(
       await client.query(
         "BEGIN"
       );
-
-      /*
-      Lock the withdrawal and user
-      so the same withdrawal cannot
-      be approved twice.
-      */
 
       const withdrawalResult =
         await client.query(
@@ -2825,12 +3175,14 @@ app.post(
              ON u.id = w.user_id
            WHERE w.id = $1
            FOR UPDATE`,
-          [withdrawalId]
+          [
+            withdrawalId
+          ]
         );
 
       if (
-        withdrawalResult.rows.length ===
-        0
+        withdrawalResult.rows
+          .length === 0
       ) {
         await client.query(
           "ROLLBACK"
@@ -2871,19 +3223,9 @@ app.post(
           withdrawal.balance
         );
 
-      /*
-      Check balance again at approval time.
-      */
-
       if (
         balance < amount
       ) {
-        /*
-        We do NOT deduct anything.
-        The moderator should investigate
-        the user's balance before approving.
-        */
-
         await client.query(
           "ROLLBACK"
         );
@@ -2898,10 +3240,6 @@ app.post(
       const newBalance =
         balance - amount;
 
-      /*
-      Deduct money only now.
-      */
-
       await client.query(
         `UPDATE users
          SET balance = $1
@@ -2912,29 +3250,32 @@ app.post(
         ]
       );
 
-      /*
-      Mark withdrawal approved.
-      */
-
       await client.query(
         `UPDATE withdrawals
          SET status = 'approved',
              reviewed_at = NOW(),
              rejection_reason = NULL
          WHERE id = $1`,
-        [withdrawalId]
+        [
+          withdrawalId
+        ]
       );
 
       /*
-      Add withdrawal transaction.
-      Negative amount represents money leaving
-      the user's Zavero wallet.
+      Withdrawal transaction
+      includes user_email.
       */
+
+      const withdrawalEmail =
+        normalizeEmail(
+          withdrawal.email
+        );
 
       await client.query(
         `INSERT INTO transactions
          (
            user_id,
+           user_email,
            amount,
            type,
            description,
@@ -2944,12 +3285,14 @@ app.post(
          (
            $1,
            $2,
-           'withdrawal',
            $3,
-           $4
+           'withdrawal',
+           $4,
+           $5
          )`,
         [
           withdrawal.user_id,
+          withdrawalEmail,
           -amount,
           `Withdrawal to ${withdrawal.bank_name}`,
           `WITHDRAWAL-${withdrawalId}`
@@ -2997,9 +3340,6 @@ app.post(
 ==================================================
 MODERATOR: REJECT WITHDRAWAL
 ==================================================
-
-NO MONEY IS DEDUCTED WHEN REJECTED.
-==================================================
 */
 
 app.post(
@@ -3007,13 +3347,18 @@ app.post(
   async (req, res) => {
     try {
       if (
-        !checkModerator(req, res)
+        !checkModerator(
+          req,
+          res
+        )
       ) {
         return;
       }
 
       const withdrawalId =
-        Number(req.params.id);
+        Number(
+          req.params.id
+        );
 
       if (!withdrawalId) {
         return res.status(400).json({
